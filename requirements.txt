@@ -1,0 +1,16 @@
+mosstool==0.2.10
+python-moss==0.3.3
+HEBO==0.3.5
+pyrosm==0.6.2
+shapely
+geojson
+pandas
+torch
+torchvision
+torch_geometric
+tensorboard
+tqdm
+pyproj
+matplotlib
+pymongo
+setproctitle
