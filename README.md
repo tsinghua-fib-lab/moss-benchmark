@@ -164,3 +164,22 @@ Run all experiments:
 bash run.sh
 ```
 The results will be saved under `./log/${algo}/${city}/${date}/info.log`, where each line records `ATT TP time`.
+
+## Ours vs CityFlow
+Switch to the folder:
+```bash
+cd ./OptPref
+```
+### Step 1. Apply the patch provided in folder `data`. 
+```bash
+git clone --depth 1 https://github.com/cityflow-project/CityFlow`
+git apply ./diff_data/diff_cityflow.patch`
+pip install ./CityFlow
+```
+
+### Step 2. Run Optimization Methods
+Run all experiments:
+```bash
+bash run.sh
+```
+The results will be saved under `./log/${algo}/${city}/${date}/info.log`, where each line records `ATT TP time simulation_time_cost optimization_time_cost`.

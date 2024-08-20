@@ -1,3 +1,6 @@
+"""
+Assign file paths for both input and output `map`, `agent` file paths to transform MOSS data ti CityFlow data format
+"""
 import json
 import os
 
@@ -326,18 +329,11 @@ def remove_loop(route):
 
 
 def main():
-    city = "newyork"
-    city2country = {
-        "beijing": "china",
-        "shanghai": "china",
-        "newyork": "us",
-        "paris": "france",
-    }
     convert(
-        f"./moss.map_{city2country[city]}_{city}.pb",
-        f"./normal_{city}_trip.pb",
-        f"./{city}_roadnet.json",
-        f"./{city}_flow.json",
+        f"./moss_newyork/map.bin",
+        f"./moss_newyork/agents.bin",
+        f"./cityflow_newyork/roadnet.json",
+        f"./cityflow_newyork/flow.json",
         time_offset=7 * 3600,
     )
 
