@@ -1,5 +1,5 @@
-mosstool==0.2.10
-python-moss==0.3.3
+mosstool==1.3.2
+python-moss==1.1.1
 HEBO==0.3.5
 pyrosm==0.6.2
 shapely
