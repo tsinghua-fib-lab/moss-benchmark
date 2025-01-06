@@ -332,7 +332,7 @@ def main():
         policy = VehiclePolicy.OPTIMUM
     env = Env(
         map_file=f'{args.data}/map.bin',
-        person_file=f'{args.data}/persons.bin',
+        person_file=f'{args.data}/agents.bin',
         start_step=args.start,
         step_interval=args.interval,
         step_reset=args.reset+int(not args.egcn_train),
