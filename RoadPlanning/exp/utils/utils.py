@@ -88,9 +88,9 @@ async def my_pre_route(
             good_schedule.CopyFrom(schedule)
             good_schedule.ClearField("trips")
             if sub_eta:
-                good_schedule.departure_time = (
-                    good_schedule.departure_time - good_trips[0].routes[0].driving.eta
-                )
+                eta = good_trips[0].routes[0].driving.eta
+                if good_schedule.departure_time > eta:
+                    good_schedule.departure_time = good_schedule.departure_time - eta
             good_schedule.trips.extend(good_trips)
             break
     return person
