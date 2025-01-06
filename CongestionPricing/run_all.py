@@ -3,12 +3,13 @@ import os
 import random
 import time
 from enum import Enum
+from typing import Any
 
 import numpy as np
 import torch
 from eGCN_ppo import Agent as eGCN_agent
-from mosstool.type import Persons,Person,Map
 from moss import Engine, TlPolicy, Verbosity
+from mosstool.type import Lane, LaneType, Map, Person, Persons
 from tqdm import tqdm
 
 
@@ -32,7 +33,7 @@ class Env:
         start_step: int,
         step_interval: int,
         step_reset: int,
-        n_routes=3,
+        n_routes:int=3,
         fuel_cost_weight=0.0024*0.2,
         vehicle_policy=VehiclePolicy.SHORTEST,
     ):
@@ -55,10 +56,17 @@ class Env:
         with open(map_file, "rb") as f:
             self.map = Map()
             self.map.ParseFromString(f.read())
+        map_lanes_dict:dict[int,Lane] = {i.id:i for i in self.map.lanes}
+        map_roads_dict:dict[int,Any] = {i.id:i for i in self.map.roads}
+        self.map_lanes_dict = map_lanes_dict
+        self.map_roads_dict = map_roads_dict
+        self.all_road_ids:list[int] = [i + ROAD_ID_START for i in range(self.eng.road_count)]
+        self.all_person_ids:list[int] = [p.id for p in persons]
+        self.road_map = {rid:idx for idx,rid in enumerate(self.all_road_ids)}
         self.persons = [
             [
                 persons[i].schedules[0].departure_time,
-                [[i+j, [self.map.road_map[i].index for i in persons[i+j].route]] for j in range(n_routes)]
+                [[i+j, [self.road_map[rid] for rid in persons[i+j].schedules[0].trips[0].routes[0].driving.road_ids]] for j in range(n_routes)]
             ] for i in range(0, len(persons), n_routes)
         ]
         self.persons.sort(key=lambda x: -x[0])
@@ -70,20 +78,21 @@ class Env:
             start_step=start_step,
             verbose_level=Verbosity.NO_OUTPUT,
         )
-        self.all_road_ids:list[int] = [i + ROAD_ID_START for i in range(self.eng.road_count)]
         self.eng.set_tl_policy_batch([i for i in range(self.eng.junction_count)], TlPolicy.FIXED_TIME)
         self.eng.set_tl_duration_batch([i for i in range(self.eng.junction_count)], 30)
         self.road_prices = np.zeros(len(self.map.roads))
-        l = np.array([r.lanes[0].geom.length for r in self.map.roads])
+        l = np.array([map_lanes_dict[r.lane_ids[0]].length for r in self.map.roads])
         self.road_fuel_cost = l*fuel_cost_weight
         self.r_2 = np.maximum(1, np.array([len(r.lane_ids) for r in self.map.roads]))
         self.r_3 = np.maximum(1, l)
         self.r_4 = np.maximum(1, l*self.r_2)
         self.road_travel_time = [[] for _ in range(self.eng.road_count)]
-        self.road_free_time = np.array([r.lanes[0].length/r.lanes[0].max_speed for r in self.map.roads])
-        self.lane2road = [l.parent_road.index if l.parent_road is not None else -1 for l in self.map.lanes]
-        self.vehicle_enter_time = np.zeros(self.eng.vehicle_count)
-        self.vehicle_lane = self.eng.get_vehicle_lanes()
+        self.road_free_time = np.array([map_lanes_dict[r.lane_ids[0]].length/map_lanes_dict[r.lane_ids[0]].max_speed for r in self.map.roads])
+        self.lane2road = [self.road_map[l.parent_id] if l.parent_id <JUNCTION_ID_START else -1 for l in self.map.lanes]
+        self.vehicle_enter_time = np.zeros(self.eng.person_count)
+        fetched_persons = self.eng.fetch_persons()
+        _vehicle_lane_dict = {pid:lid for pid,lid in zip(fetched_persons["ids"],fetched_persons["lane_id"])}
+        self.vehicle_lane = np.array([_vehicle_lane_dict[pid] for pid in self.all_person_ids])
         self._reset_id = self.eng.make_checkpoint()
         self.metrics = None
         self.obs_size = (self.eng.road_count, 4)
@@ -116,9 +125,12 @@ class Env:
                 for (_, a, b), (_, r) in zip(ic, irs):
                     _LOG.append([self.time, a, b, len(r)])
                 choice = min(ic, key=lambda x: x[1]+x[2])[0]
-            self.eng.set_vehicle_enable(choice, True)
+            # TODO:这个怎么搞
+            # self.eng.set_vehicle_enable(choice, True)
         # 处理road，记录平均通行时间
-        vl = self.eng.get_person_lanes()
+        fetched_persons = self.eng.fetch_persons()
+        _vehicle_lane_dict = {pid:lid for pid,lid in zip(fetched_persons["ids"],fetched_persons["lane_id"])}
+        vl = np.array([_vehicle_lane_dict[pid] for pid in self.all_person_ids])
         mask = vl != self.vehicle_lane
         if np.any(mask):
             for i, lane, t in zip(np.nonzero(mask)[0], self.vehicle_lane[mask], self.vehicle_enter_time[mask]):
@@ -186,10 +198,11 @@ class Env:
         edges = []
         for j in self.map.junctions:
             for l_id in j.lane_ids:
-                if l.type == LaneType.DRIVING and l.predecessors and l.successors:
+                l = self.map_lanes_dict[l_id]
+                if l.type == LaneType.LANE_TYPE_DRIVING and l.predecessors and l.successors:
                     edges.append((
-                        l.predecessors[0].parent_road.index,
-                        l.successors[0].parent_road.index,
+                       self.road_map[self.map_lanes_dict[ l.predecessors[0].id].parent_id],
+                       self.road_map[self.map_lanes_dict[ l.successors[0].id].parent_id],
                     ))
         edges = sorted(set(edges))
         return (
