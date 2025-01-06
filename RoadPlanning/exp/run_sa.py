@@ -4,7 +4,6 @@ import logging
 import os
 import pickle
 import random
-import signal
 import subprocess
 import time
 
@@ -12,8 +11,8 @@ import numpy as np
 from mosstool.type import Map
 from mosstool.util.format_converter import pb2dict
 from utils.const import *
-from utils.utils import (build_new_map, fetch_trip_route, get_geojson_data,
-                         get_home_and_work_persons)
+from utils.utils import (AutoTerminateRouting, build_new_map, fetch_trip_route,
+                         get_geojson_data, get_home_and_work_persons)
 
 
 def get_args():
@@ -27,7 +26,7 @@ def get_args():
 
 
 args = get_args()
-path = time.strftime(f'log/sa/{args.exp}/%Y%m%d-%H%M%S')
+path = time.strftime(f"log/sa/{args.exp}/%Y%m%d-%H%M%S")
 if not os.path.exists(path):
     os.makedirs(path, exist_ok=True)
 logging.basicConfig(
@@ -76,16 +75,18 @@ async def main():
         ORIG_MAP.ParseFromString(f.read())
     orig_map_dict = pb2dict(ORIG_MAP)
     (orig_topo_dict, way_id2junc_id, _, _) = get_geojson_data(
-        roadnet_path=f"./data/roadnet_{args.city}.geojson", proj_str=ORIG_MAP.header.projection
+        roadnet_path=f"./data/roadnet_{args.city}.geojson",
+        proj_str=ORIG_MAP.header.projection,
     )
-    ALL_ATTS = []
-    ALL_PAIRS_VALUES = []
-    ALL_TPS = []
+    ALL_ATTS: list[float] = []
+    ALL_PAIRS_VALUES: list[list[int]] = []
+    ALL_TPS: list[float] = []
 
     initT = INIT_TEMP
     finalT = FINAL_TEMP
     ii = 0
     while initT > finalT:
+        att_ave, tp_ave = -1, -1
         start_time = time.time()
         for jj, _ in enumerate(range(LOCAL_SEARCH_TIMES)):
             logging.info(f"Iteration {ii}, local search {jj}!")
@@ -99,19 +100,22 @@ async def main():
                 way_id2junc_id,
                 args.city,
             )
-            loop_map_name = f"moss.{args.city}_map"
-            loop_map_file = f"./LOOP_DATA/{loop_map_name}.pb"
-            loop_agent_file_to_work = f"./LOOP_DATA/to_work_{args.city}_trip.pb"
-            loop_agent_file_to_home = f"./LOOP_DATA/to_home_{args.city}_trip.pb"
-            loop_att_path = f"./LOOP_DATA/{args.city}_att.pkl"
-            loop_tp_path = f"./LOOP_DATA/{args.city}_tp.pkl"
+            loop_map_file = f"./LOOP_DATA/moss.{args.city}_map.pb"
+            loop_agent_file_to_work, loop_agent_file_to_home = (
+                f"./LOOP_DATA/to_work_{args.city}_trip.pb",
+                f"./LOOP_DATA/to_home_{args.city}_trip.pb",
+            )
+            loop_att_path, loop_tp_path = (
+                f"./LOOP_DATA/{args.city}_att.pkl",
+                f"./LOOP_DATA/{args.city}_tp.pkl",
+            )
             with open(loop_map_file, "wb") as f:
                 f.write(new_map_pb.SerializeToString())
-            route_command = (
-                f"./exp/utils/routing -map {loop_map_name} -cache ./LOOP_DATA -listen {HOST}"
+            _routing = AutoTerminateRouting()
+            listening_host = _routing.start_routing(
+                map_path=loop_map_file,
+                routing_path="./exp/utils/routing",
             )
-            cmd = route_command.split(" ")
-            process = subprocess.Popen(args=cmd,)
             orig_person_path = args.trip_path
             (to_work_persons, to_home_persons, max_num) = get_home_and_work_persons(
                 orig_person_path, orig_map_dict, new_m_dict
@@ -119,38 +123,35 @@ async def main():
             logging.info(
                 f"to_work_persons {len(to_work_persons)}, to_home_persons {len(to_home_persons)}"
             )
-            time.sleep(5)
             await fetch_trip_route(
                 persons=to_home_persons,
                 m_dict=new_m_dict,
-                listen=HOST,
+                listen=listening_host,
                 output_path_home=loop_agent_file_to_home,
                 output_path_work=loop_agent_file_to_work,
                 max_num=max_num,
                 other_persons=to_work_persons,
                 transfer_to_lane_pos=False,
             )
-            time.sleep(0.1)
-            process.send_signal(sig=signal.SIGTERM)
-            process.wait()
+            _routing.close()
             # morning peak 6-12
-            cmd = f"python3 exp/utils/dump_att_tp.py --map_path {loop_map_file} --start_step {6*3600} --agent_path {loop_agent_file_to_work} --tp_output_path {loop_tp_path} --output_path {loop_att_path} --device_id {DEVICE_ID}".split(
+            cmd = f"python exp/utils/dump_att_tp.py --map_path {loop_map_file} --start_step {6*3600} --agent_path {loop_agent_file_to_work} --tp_output_path {loop_tp_path} --output_path {loop_att_path} --device_id {args.device_id}".split(
                 " "
             )
             subprocess.run(cmd, check=True)
             att_0 = pickle.load(open(loop_att_path, "rb"))
             tp_0 = pickle.load(open(loop_tp_path, "rb"))
             # evening peak 17-23
-            cmd = f"python3 exp/utils/dump_att_tp.py --map_path {loop_map_file} --start_step {17*3600} --agent_path {loop_agent_file_to_home} --tp_output_path {loop_tp_path} --output_path {loop_att_path} --device_id {DEVICE_ID}".split(
+            cmd = f"python exp/utils/dump_att_tp.py --map_path {loop_map_file} --start_step {17*3600} --agent_path {loop_agent_file_to_home} --tp_output_path {loop_tp_path} --output_path {loop_att_path} --device_id {args.device_id}".split(
                 " "
             )
             subprocess.run(cmd, check=True)
-            att_1 = pickle.load(open(loop_att_path, "rb"))
-            tp_1 = pickle.load(open(loop_tp_path, "rb"))
-            tp_ave = np.mean([tp_0, tp_1])
-            att_ave = np.mean([att_0, att_1])
-            ALL_TPS.append(tp_ave)
-            ALL_ATTS.append(att_ave)
+            att_1, tp_1 = pickle.load(open(loop_att_path, "rb")), pickle.load(
+                open(loop_tp_path, "rb")
+            )
+            tp_ave, att_ave = np.mean([tp_0, tp_1]), np.mean([att_0, att_1])
+            ALL_TPS.append(tp_ave)  # type:ignore
+            ALL_ATTS.append(att_ave)  # type:ignore
             ALL_PAIRS_VALUES.append([v for v in rec_x_values])  # type:ignore
             if (
                 att_ave < currentRes["att"]
@@ -174,7 +175,7 @@ async def main():
         initT *= ALPHA
         end_time = time.time()
         logging.info(f"iter {ii}: {end_time - start_time}, {initT}, {finalT}")
-        with open(f'{path}/info.log', 'a') as f:
+        with open(f"{path}/info.log", "a") as f:
             f.write(f"{att_ave:.3f} {tp_ave:.3f} {end_time - start_time:.3f}\n")
         ii += 1
     logging.info(f"Best res: {bestRes}")

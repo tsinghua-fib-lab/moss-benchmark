@@ -50,7 +50,7 @@ def main():
     atexit.register(os.killpg, 0, 9)
     e_type = "cityflow"
     jobs = [
-        f'python3 algo_{algo}.py --data ./data/{e_type}_{city}/config.json --start 25200 --steps {3*3600} --training_step {30*3600//30+1} --training_start {360} --exp {city}_1h_{e_type} --engine_type {e_type}'
+        f'python algo_{algo}.py --data ./data/{e_type}_{city}/config.json --start 25200 --steps {3*3600} --training_step {30*3600//30+1} --training_start {360} --exp {city}_1h_{e_type} --engine_type {e_type}'
         for algo in ['colight',]
         for city in ['newyork',]
     ]

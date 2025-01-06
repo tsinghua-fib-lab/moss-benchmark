@@ -284,14 +284,14 @@ def convert(
             continue
         agent = {
             "vehicle": {
-                "length": a.attribute.length,
-                "width": a.attribute.width,
-                "maxPosAcc": a.attribute.max_acceleration,
-                "maxNegAcc": -a.attribute.max_braking_acceleration,
-                "usualPosAcc": a.attribute.usual_acceleration,
-                "usualNegAcc": -a.attribute.usual_braking_acceleration,
+                "length": a.vehicle_attribute.length,
+                "width": a.vehicle_attribute.width,
+                "maxPosAcc": a.vehicle_attribute.max_acceleration,
+                "maxNegAcc": -a.vehicle_attribute.max_braking_acceleration,
+                "usualPosAcc": a.vehicle_attribute.usual_acceleration,
+                "usualNegAcc": -a.vehicle_attribute.usual_braking_acceleration,
                 "minGap": a.vehicle_attribute.min_gap,
-                "maxSpeed": a.attribute.max_speed,
+                "maxSpeed": a.vehicle_attribute.max_speed,
                 "headwayTime": 1.5,
             },
             "route": route,

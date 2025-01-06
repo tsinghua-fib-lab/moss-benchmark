@@ -14,8 +14,6 @@ conf["lr"] = 3e-2
 conf["num_epochs"] = 100
 BO_CONF = conf
 
-# routing listening host
-HOST = "localhost:52901"
 
 # SA
 INIT_TEMP = 150

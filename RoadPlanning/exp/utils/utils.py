@@ -1,34 +1,32 @@
 import asyncio
+import atexit
 import logging
+import os
 import random
+import signal
+import socket
+import subprocess
+import time
+from contextlib import closing
 from copy import deepcopy
-from typing import Optional, cast
+from typing import Optional, cast,Any
 
 import geojson
 import numpy as np
 import pyproj
 from geojson import Feature, FeatureCollection, LineString, MultiPoint
 from mosstool.trip.route import RoutingClient
-from mosstool.type import Map, Person, Persons
+from mosstool.type import (LanePosition, Map, Person, Persons, Position,
+                           Schedule, TripMode)
 from mosstool.util.format_converter import dict2pb, pb2dict
-from pycityproto.city.geo.v2.geo_pb2 import LanePosition, Position
-from pycityproto.city.person.v1.person_pb2 import Person
 from pycityproto.city.routing.v2.routing_pb2 import RouteType
 from pycityproto.city.routing.v2.routing_service_pb2 import GetRouteRequest
-from pycityproto.city.trip.v2.trip_pb2 import Schedule, TripMode
 from shapely.geometry import LineString as sLineString
 from shapely.strtree import STRtree
 from tqdm import tqdm
 
 LANE_TYPE_DRIVE = 1
 LANE_TYPE_WALK = 2
-_TYPE_MAP = {
-    TripMode.TRIP_MODE_DRIVE_ONLY: RouteType.ROUTE_TYPE_DRIVING,
-    TripMode.TRIP_MODE_BIKE_WALK: RouteType.ROUTE_TYPE_WALKING,
-    TripMode.TRIP_MODE_BUS_WALK: RouteType.ROUTE_TYPE_WALKING,
-    TripMode.TRIP_MODE_WALK_ONLY: RouteType.ROUTE_TYPE_WALKING,
-}
-
 
 async def my_pre_route(
     client: RoutingClient, person: Person, sub_eta: bool, in_place: bool = False
@@ -65,7 +63,7 @@ async def my_pre_route(
             # build request
             res = await client.GetRoute(
                 GetRouteRequest(
-                    type=_TYPE_MAP[trip.mode],
+                    type=RouteType.ROUTE_TYPE_DRIVING,
                     start=start,
                     end=trip.end,
                     time=departure_time,
@@ -96,10 +94,9 @@ async def my_pre_route(
             break
     return person
 
-
 def _road_id2lane_pos(
-    road_id0, road_id1, rng, m_lanes, m_roads, m_lane_lengths: Optional[dict] = None
-):
+    road_id0:int, road_id1:int, rng:np.random.Generator, m_lanes:dict[int,dict], m_roads:dict[int,dict], m_lane_lengths: Optional[dict[int,float]] = None
+)->tuple[int,float,int,float]:
     if not road_id0 == road_id1:
         drive_lane_ids_0 = [
             lid
@@ -147,13 +144,13 @@ def _road_id2lane_pos(
 
 
 async def fetch_trip_route(
-    persons,
-    m_dict,
+    persons:list[Person],
+    m_dict:dict[str,Any],
     listen: str,
     output_path_home: str,
     output_path_work: str,
     max_num: int,
-    other_persons,
+    other_persons:list[Person],
     transfer_to_lane_pos: bool = True,
 ):
     client = RoutingClient(listen)
@@ -190,9 +187,11 @@ async def fetch_trip_route(
         end_id = p.schedules[0].trips[0].end.lane_position.lane_id
         trip_mode = p.schedules[0].trips[0].mode
         if trip_mode in [
-            TripMode.TRIP_MODE_BIKE_WALK,
-            TripMode.TRIP_MODE_BUS_WALK,
-            TripMode.TRIP_MODE_WALK_ONLY,
+                TripMode.TRIP_MODE_BIKE_WALK,
+                TripMode.TRIP_MODE_BUS_WALK,
+                TripMode.TRIP_MODE_BUS_SUBWAY_WALK,
+                TripMode.TRIP_MODE_SUBWAY_WALK,
+                TripMode.TRIP_MODE_WALK_ONLY,
         ]:
             if (
                 not m_lanes[start_id]["type"] == LANE_TYPE_WALK
@@ -262,7 +261,7 @@ async def fetch_trip_route(
         f.write(to_work_pb.SerializeToString())
 
 
-def topo_dict2net(new_topo_dict):
+def topo_dict2net(new_topo_dict:dict[str,Any])->FeatureCollection:
     geos = []
     for geo_type, dicts in new_topo_dict.items():
         for feature in dicts.values():
@@ -284,7 +283,7 @@ def topo_dict2net(new_topo_dict):
     return FeatureCollection(geos)
 
 
-def get_geojson_data(roadnet_path, proj_str):
+def get_geojson_data(roadnet_path:str, proj_str:str):
     projector = pyproj.Proj(proj_str)
     with open(roadnet_path, "r") as f:
         raw_roadnet = geojson.load(f)
@@ -315,7 +314,7 @@ def get_geojson_data(roadnet_path, proj_str):
     return (orig_topo_dict, way_id2junc_id, way_id2line, way_id2idx)
 
 
-def delete_way(way_id, topo_dict, way_id2junc_id):
+def delete_way(way_id:int, topo_dict:dict[str,dict], way_id2junc_id:dict[int,Any]):
     if way_id in topo_dict["LineString"]:
         del topo_dict["LineString"][way_id]
     in_ways_junc_ids = way_id2junc_id[way_id]["in_ways"]
@@ -332,7 +331,7 @@ def delete_way(way_id, topo_dict, way_id2junc_id):
         ]
 
 
-def way_id2road_id(way_id, topo_dict):
+def way_id2road_id(way_id:int, topo_dict:dict[str,dict]):
     road_id_offset = 2_0000_0000
     for rid, wid in enumerate(topo_dict["LineString"].keys(), start=road_id_offset):
         if wid == way_id:
@@ -342,7 +341,7 @@ def way_id2road_id(way_id, topo_dict):
 
 def build_new_map(
     orig_topo_dict, ORIG_MAP, opt_way_ids, rec_x_values, way_id2junc_id, CITY
-):
+)->tuple[dict[str,Any],Map]:
     new_topo_dict = deepcopy(orig_topo_dict)
     all_road_ids = []
     for opt_wid, x_type in zip(opt_way_ids, rec_x_values):
@@ -365,7 +364,7 @@ def build_new_map(
     return (new_map_dict, new_map_pb)
 
 
-def get_home_and_work_persons(orig_person_path, orig_map_dict, new_map_dict):
+def get_home_and_work_persons(orig_person_path:str, orig_map_dict:dict[str,Any], new_map_dict:dict[str,Any])->tuple[list[Person],list[Person],int]:
     orig_ratio_persons_pb = Persons()
     with open(orig_person_path, "rb") as f:
         orig_ratio_persons_pb.ParseFromString(f.read())
@@ -440,9 +439,39 @@ def get_home_and_work_persons(orig_person_path, orig_map_dict, new_map_dict):
     return (to_work_persons, to_home_persons, len(orig_ratio_persons_pb.persons))
 
 
-def show_best_result(atts, tps, algo):
+def show_best_result(atts:list[float], tps:list[float], algo:str)->tuple[float,float]:
     min_index = min(enumerate(atts), key=lambda x: x[1])[0]
     if algo == "random":
-        return (np.mean(atts), np.mean(tps))
+        return (float(np.mean(atts)), float(np.mean(tps)))
     else:
         return (atts[min_index], tps[min_index])
+    
+    
+class AutoTerminateRouting:
+    def __init__(self) -> None:
+        self._closed = False 
+
+    def find_free_port(
+        self,
+    ):
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+            s.bind(("", 0))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            return s.getsockname()[1]
+
+    def start_routing(self, map_path: str, routing_path: str):
+        self._routing_port = self.find_free_port()
+        route_command = f"{os.path.join('./',routing_path)} -map {map_path} -listen :{self._routing_port}"
+        cmd = route_command.split(" ")
+        self.process = subprocess.Popen(
+            args=cmd,
+        )
+        time.sleep(5)
+        atexit.register(self.close)
+        return f"http://localhost:{self._routing_port}"
+
+    def close(self):
+        if not self._closed:
+            self.process.send_signal(sig=signal.SIGTERM)
+            self.process.wait()
+            self._closed = True
