@@ -19,6 +19,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--device_id", help="cuda device id", type=int, default=0)
     parser.add_argument("--city", default="")
+    parser.add_argument("--condition", default="")
     parser.add_argument("--opt_way_path", default="")
     parser.add_argument("--map_path", default="")
     parser.add_argument("--trip_path", default="")
@@ -26,7 +27,7 @@ def get_args():
 
 
 args = get_args()
-path = time.strftime(f"log/sa/{args.exp}/%Y%m%d-%H%M%S")
+path = time.strftime(f"log/sa/{args.city}_{args.condition}/%Y%m%d-%H%M%S")
 if not os.path.exists(path):
     os.makedirs(path, exist_ok=True)
 logging.basicConfig(

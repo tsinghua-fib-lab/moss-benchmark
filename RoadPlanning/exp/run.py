@@ -26,13 +26,14 @@ def get_args():
     parser.add_argument("--opt_way_path", default="")
     parser.add_argument("--map_path", default="")
     parser.add_argument("--trip_path", default="")
+    parser.add_argument("--condition", default="")
     parser.add_argument("--device_id", type=int, default=0)
     parser.add_argument("--algo", choices=["none", "random", "rule", "bo"])
     return parser.parse_args()
 
 
 args = get_args()
-path = time.strftime(f"log/{args.algo}/{args.city}_{args.epochs}/%Y%m%d-%H%M%S")
+path = time.strftime(f"log/{args.algo}/{args.city}_{args.condition}_{args.epochs}/%Y%m%d-%H%M%S")
 if not os.path.exists(path):
     os.makedirs(path, exist_ok=True)
 logging.basicConfig(
