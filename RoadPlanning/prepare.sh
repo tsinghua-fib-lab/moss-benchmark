@@ -1,6 +1,7 @@
 #!/usr/bin/bash
 set -x
 set -e
+python3 preparation/fetch_2019_geojsons.py
 for city in beijing shanghai newyork paris; do
     python3 preparation/fetch_candidate_way_ids.py --candidate_way_path ./data/${city}_candidate_ways.pkl --city $city
 done
