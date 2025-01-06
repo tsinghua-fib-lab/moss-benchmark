@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 # MOSS
-python run_moss.py
+python3 run_moss.py
 # Convert CityFlow data
-python convertor/to_cityflow.py
+python3 convertor/to_cityflow.py
 # CityFlow
-python run_cityflow.py
+python3 run_cityflow.py

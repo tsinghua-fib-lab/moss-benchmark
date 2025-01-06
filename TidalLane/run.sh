@@ -12,8 +12,8 @@ CONGESTED_CITIES="china_beijing_c china_shanghai_c france_paris_c us_newyork_c"
 for city in $NORMAL_CITIES $SMOOTH_CITIES $CONGESTED_CITIES; do
     for algo in none random rule; do
         # simulate from 7:00 to 10:00, i.e. start at 7*3600=25200 seconds and simulet 3*3600=10800 steps
-        python run_baseline.py --algo $algo --data data/$city --start 25200 --steps 10800 --exp $city
+        python3 run_baseline.py --algo $algo --data data/$city --start 25200 --steps 10800 --exp $city
     done
     # train for 3 hours
-    timeout 3h python run_ppo.py --data data/$city --start 25200 --steps 10800 --exp $city
+    timeout 3h python3 run_ppo.py --data data/$city --start 25200 --steps 10800 --exp $city
 done

@@ -123,14 +123,14 @@ cd ./CongestionPricing
 * Fetch the road net from OSM data of 2019.
 
     ```bash
-    python preparation/fetch_2019_geojsons.py
+    python3 preparation/fetch_2019_geojsons.py
     ```
 
 * Find the difference between road network of 2019 and road network of 2024, mark those roads not in road network of 2019 as constructed in the past five years.
 
     ```bash
     for city in beijing shanghai newyork paris; do
-        python preparation/fetch_candidate_way_ids.py --candidate_way_path ./data/${city}_candidate_ways.pkl --city $city
+        python3 preparation/fetch_candidate_way_ids.py --candidate_way_path ./data/${city}_candidate_ways.pkl --city $city
     done
     ```
 
@@ -142,7 +142,7 @@ cd ./CongestionPricing
     ```bash
     for city in beijing shanghai newyork paris; do
         for condition in smooth normal congested; do
-            python exp/select_50_optimize_way_ids.py \
+            python3 exp/select_50_optimize_way_ids.py \
                 --opt_way_path ./data/${condition}_${city}_opt_ways.pkl \
                 --city $city \
                 --map_path ./data/moss.map_china_${city}.pb \

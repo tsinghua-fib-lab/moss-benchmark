@@ -8,7 +8,7 @@ CITIES="Changchun Hangzhou Jinan Nanchang Shanghai Shenzhen eff_10inter eff_1e2i
 for n in 0 1 2; do
     for data in $CITIES; do
         for sim in cityflow cblab sumo moss; do
-            python run_$sim.py --data $data --output log/$data/${sim}_$n.json
+            python3 run_$sim.py --data $data --output log/$data/${sim}_$n.json
         done
     done
 done

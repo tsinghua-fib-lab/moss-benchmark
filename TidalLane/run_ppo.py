@@ -289,7 +289,7 @@ def main():
         if pt is not None:
             shutil.copy(pt, f'{path}/load.pt')
         with open(f'{path}/cmd.sh', 'w') as f:
-            f.write('python ')
+            f.write('python3 ')
             f.write(' '.join(sys.argv))
             f.write('\ntensorboard --port 8888 --logdir '+os.path.abspath(path))
         with open(f'{path}/args.json', 'w') as f:
