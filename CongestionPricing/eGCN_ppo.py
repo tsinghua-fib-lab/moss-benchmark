@@ -29,15 +29,21 @@ def make_mlp(*shape, dropout=0.1, act=nn.Tanh, sigma=None, compile=True):
     ls = [nn.Linear(i, j) for i, j in zip(shape, shape[1:])]
     if sigma is not None:
         for l in ls:
-            nn.init.orthogonal_(l.weight, 2**0.5)
+            nn.init.orthogonal_(l.weight, 2**0.5)  # type: ignore
             nn.init.constant_(l.bias, 0)
         nn.init.orthogonal_(ls[-1].weight, sigma)
     mlp = nn.Sequential(
-        *sum(([
-            l,
-            act(),
-            nn.Dropout(dropout),
-        ] for l in ls[:-1]), []),
+        *sum(
+            (
+                [
+                    l,
+                    act(),
+                    nn.Dropout(dropout),
+                ]
+                for l in ls[:-1]
+            ),
+            [],
+        ),
         ls[-1]
     )
     if compile:
@@ -48,14 +54,14 @@ def make_mlp(*shape, dropout=0.1, act=nn.Tanh, sigma=None, compile=True):
 class Model(nn.Module):
     def __init__(self, n_node, node_dim, edge_index):
         super().__init__()
-        self.register_buffer('edge_index', edge_index, False)
+        self.register_buffer("edge_index", edge_index, False)
 
         self.conv1 = GCNConv(-1, node_dim)
         self.conv2 = GCNConv(node_dim, node_dim)
 
-        self.critic = make_mlp(n_node*node_dim, 64, 64, 1, sigma=1)
-        self.actor_alpha = make_mlp(n_node*node_dim, 128, 128, n_node, sigma=0.01)
-        self.actor_beta = make_mlp(n_node*node_dim, 128, 128, n_node, sigma=0.01)
+        self.critic = make_mlp(n_node * node_dim, 64, 64, 1, sigma=1)
+        self.actor_alpha = make_mlp(n_node * node_dim, 128, 128, n_node, sigma=0.01)
+        self.actor_beta = make_mlp(n_node * node_dim, 128, 128, n_node, sigma=0.01)
 
     def get_obs(self, x):
         # x: B x N x F
@@ -72,8 +78,8 @@ class Model(nn.Module):
 
     def get_action_and_value(self, x, action=None, sample=True):
         x = self.get_obs(x)
-        alpha = 1+F.softplus(self.actor_alpha(x))
-        beta = 1+F.softplus(self.actor_beta(x))
+        alpha = 1 + F.softplus(self.actor_alpha(x))
+        beta = 1 + F.softplus(self.actor_beta(x))
         probs = Beta(alpha, beta)
         if action is None:
             if sample:
@@ -89,15 +95,17 @@ class Agent:
         self.world = world
         self.args = args
         self.loss = []
-        args.num_steps = args.egcn_mini_batch_size*args.egcn_mini_batch_num
+        args.num_steps = args.egcn_mini_batch_size * args.egcn_mini_batch_num
         self.last_reward = world.get_accumulated_reward()
 
-        self.device = device = torch.device('cuda')
+        self.device = device = torch.device("cuda")
         self.model = Model(self.node_num, 16, self.edge_index).to(device)
         self.optimizer = Adam(self.model.parameters(), lr=args.egcn_lr, eps=1e-5)
         self.step = 0
         self.obs = torch.zeros((args.num_steps, self.node_num, 1), device=device)
-        self.actions = torch.zeros((args.num_steps, self.node_num), dtype=torch.long, device=device)
+        self.actions = torch.zeros(
+            (args.num_steps, self.node_num), dtype=torch.long, device=device
+        )
         self.log_probs = torch.zeros((args.num_steps, self.node_num), device=device)
         self.rewards = torch.zeros((args.num_steps, 1), device=device)
         self.dones = torch.zeros((args.num_steps, 1), device=device)
@@ -111,8 +119,10 @@ class Agent:
             self.next_obs = torch.FloatTensor(obs).view(-1, 1).to(self.device)
             self.next_done = torch.FloatTensor([0]).to(self.device)
         self.obs[self.step] = self.next_obs
-        self.dones[self.step] = self.next_done
-        action, log_prob, _, value = self.model.get_action_and_value(self.next_obs.unsqueeze(0))
+        self.dones[self.step] = self.next_done  # type: ignore
+        action, log_prob, _, value = self.model.get_action_and_value(
+            self.next_obs.unsqueeze(0)
+        )
         self.actions[self.step] = action
         self.log_probs[self.step] = log_prob
         self.values[self.step] = value
@@ -120,7 +130,7 @@ class Agent:
 
     def get_rewards(self):
         current_reward = self.world.get_accumulated_reward()
-        reward = current_reward-self.last_reward
+        reward = current_reward - self.last_reward
         self.last_reward = current_reward
         return np.array([reward])
 
@@ -138,18 +148,26 @@ class Agent:
         LAMBDA = 0.9
         CLIP_COEF = 0.2
         with torch.no_grad():
+            assert self.next_obs is not None
             next_value = self.model.get_value(self.next_obs.unsqueeze(0))
             advantages = torch.zeros_like(self.rewards)
             last_gae_lam = 0
             for t in reversed(range(self.args.num_steps)):
                 if t == self.args.num_steps - 1:
+                    assert self.next_done is not None
                     next_nonterminal = 1.0 - self.next_done
                     next_values = next_value
                 else:
                     next_nonterminal = 1.0 - self.dones[t + 1]
                     next_values = self.values[t + 1]
-                delta = self.rewards[t] + GAMMA * next_values * next_nonterminal - self.values[t]
-                advantages[t] = last_gae_lam = delta + GAMMA*LAMBDA * next_nonterminal * last_gae_lam
+                delta = (
+                    self.rewards[t]
+                    + GAMMA * next_values * next_nonterminal
+                    - self.values[t]
+                )
+                advantages[t] = last_gae_lam = (
+                    delta + GAMMA * LAMBDA * next_nonterminal * last_gae_lam
+                )
             returns = advantages + self.values
 
         b_obs = self.obs
@@ -164,10 +182,12 @@ class Agent:
             np.random.shuffle(b_inds)
             b_inds = b_inds.reshape(-1, self.args.egcn_mini_batch_size)
             for mb_inds in b_inds:
-                _, new_log_prob, entropy, new_value = self.model.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, new_log_prob, entropy, new_value = self.model.get_action_and_value(
+                    b_obs[mb_inds], b_actions[mb_inds]
+                )
                 log_ratio = new_log_prob - b_log_probs[mb_inds]
                 if np.any(log_ratio.detach().cpu().numpy() >= 80):
-                    print('Warning: log_ratio too big', log_ratio)
+                    print("Warning: log_ratio too big", log_ratio)
                     log_ratio = torch.clamp(log_ratio, None, 80)
                 ratio = log_ratio.exp()
 
@@ -183,7 +203,9 @@ class Agent:
 
                 # Policy loss
                 pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - CLIP_COEF, 1 + CLIP_COEF)
+                pg_loss2 = -mb_advantages * torch.clamp(
+                    ratio, 1 - CLIP_COEF, 1 + CLIP_COEF
+                )
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss
@@ -195,7 +217,7 @@ class Agent:
 
                 self.optimizer.zero_grad()
                 loss.backward()
-                nn.utils.clip_grad_norm_(self.model.parameters(), 0.5)
+                nn.utils.clip_grad_norm_(self.model.parameters(), 0.5)  # type:ignore
                 self.optimizer.step()
 
                 # self.loss.append([v_loss.item(), pg_loss.item()])

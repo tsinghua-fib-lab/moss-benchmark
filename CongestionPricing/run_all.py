@@ -20,6 +20,8 @@ class VehiclePolicy(Enum):
 
 _LOG = []
 NN_INPUT_SCALER = 5
+ROAD_ID_START = 2_0000_0000
+JUNCTION_ID_START = 3_0000_0000
 
 
 class Env:
@@ -62,17 +64,19 @@ class Env:
         self.persons.sort(key=lambda x: -x[0])
         self._persons = self.persons[:]
         self.eng = Engine(
+            name = "CongestionPricing",
             map_file=map_file,
             person_file=person_file,
             start_step=start_step,
             verbose_level=Verbosity.NO_OUTPUT,
         )
+        self.all_road_ids:list[int] = [i + ROAD_ID_START for i in range(self.eng.road_count)]
         self.eng.set_tl_policy_batch([i for i in range(self.eng.junction_count)], TlPolicy.FIXED_TIME)
         self.eng.set_tl_duration_batch([i for i in range(self.eng.junction_count)], 30)
         self.road_prices = np.zeros(len(self.map.roads))
         l = np.array([r.lanes[0].geom.length for r in self.map.roads])
         self.road_fuel_cost = l*fuel_cost_weight
-        self.r_2 = np.maximum(1, np.array([len(r.lanes) for r in self.map.roads]))
+        self.r_2 = np.maximum(1, np.array([len(r.lane_ids) for r in self.map.roads]))
         self.r_3 = np.maximum(1, l)
         self.r_4 = np.maximum(1, l*self.r_2)
         self.road_travel_time = [[] for _ in range(self.eng.road_count)]
@@ -114,7 +118,7 @@ class Env:
                 choice = min(ic, key=lambda x: x[1]+x[2])[0]
             self.eng.set_vehicle_enable(choice, True)
         # 处理road，记录平均通行时间
-        vl = self.eng.get_vehicle_lanes()
+        vl = self.eng.get_person_lanes()
         mask = vl != self.vehicle_lane
         if np.any(mask):
             for i, lane, t in zip(np.nonzero(mask)[0], self.vehicle_lane[mask], self.vehicle_enter_time[mask]):
@@ -140,7 +144,7 @@ class Env:
         self.road_prices[:] = action  # *self.road_fuel_cost
         # r = self.eng.get_finished_person_count()
         # r = self.eng.get_departed_person_average_traveling_time()
-        r = self.eng.get_vehicle_total_distances().sum()
+        r = sum(self.eng.fetch_persons()["total_distance"])
         if not np.isfinite(r):
             r = 0
         for _ in range(self.step_interval):
@@ -152,7 +156,7 @@ class Env:
         # r = (np.mean(v)-10)/10 if len(v) else 0
         # r = (self.eng.get_finished_person_count()-r)/50
         # r = (r-self.eng.get_departed_person_average_traveling_time())/10
-        r = (self.eng.get_vehicle_total_distances().sum()-r)/1e6
+        r = (sum(self.eng.fetch_persons()["total_distance"])-r)/1e6
         if not np.isfinite(r):
             r = 0
         self.info['reward'] = r
@@ -181,7 +185,7 @@ class Env:
         node_count = self.eng.road_count
         edges = []
         for j in self.map.junctions:
-            for l in j.lanes:
+            for l_id in j.lane_ids:
                 if l.type == LaneType.DRIVING and l.predecessors and l.successors:
                     edges.append((
                         l.predecessors[0].parent_road.index,
@@ -199,11 +203,14 @@ class Env:
 
     def get_obs(self):
         # 观测值为道路的车辆数
-        return self.eng.get_road_vehicle_counts()/100
+        c_dict = self.eng.get_road_vehicle_counts()
+        c = np.array([c_dict[i] for i in self.all_road_ids])
+        return c/100
 
     def observe(self):
         # 用于我们PPO训练的观测值
-        c = self.eng.get_road_vehicle_counts()
+        c_dict = self.eng.get_road_vehicle_counts()
+        c = np.array([c_dict[i] for i in self.all_road_ids])
         return np.stack([
             np.minimum(c/200, 1)*NN_INPUT_SCALER,
             np.minimum(c/self.r_2/50, 1)*NN_INPUT_SCALER,
@@ -327,6 +334,7 @@ def main():
             controller.step()
             if (s+1) % args.reset == 0:
                 with open(f'{path}/info.log', 'a') as f:
+                    assert env.metrics is not None
                     f.write(f"{env.metrics[3]:.3f} {env.metrics[1]} {time.time()-t:.3f}\n")
                     t = time.time()
         return
