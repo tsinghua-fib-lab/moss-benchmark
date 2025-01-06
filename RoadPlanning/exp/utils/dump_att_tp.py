@@ -26,7 +26,7 @@ eng = Engine(
     verbose_level=Verbosity.INIT_ONLY,
     device=args.device_id,
 )
-eng.set_tl_duration_batch(range(eng.junction_count), 30)  # type:ignore
+eng.set_tl_duration_batch([i for i in range(eng.junction_count)], 30)  # type:ignore
 eng.set_tl_policy_batch(
     range(eng.junction_count), TlPolicy.FIXED_TIME  # type:ignore
 )

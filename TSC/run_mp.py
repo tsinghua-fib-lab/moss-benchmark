@@ -29,7 +29,7 @@ def main():
         start_step=args.start,
     )
     t = time.time()
-    eng.set_tl_policy_batch(range(eng.junction_count), TlPolicy.MAX_PRESSURE)
+    eng.set_tl_policy_batch([i for i in range(eng.junction_count)], TlPolicy.MAX_PRESSURE)
     eng.next_step(args.steps)
     with open(f'{path}/info.log', 'a') as f:
         f.write(f"{eng.get_departed_person_average_traveling_time():.3f} {eng.get_finished_person_count()} {time.time()-t:.3f}\n")

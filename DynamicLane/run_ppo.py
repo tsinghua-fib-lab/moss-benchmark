@@ -7,17 +7,19 @@ import sys
 import time
 from glob import glob
 
+from mosstool.type import Map,LaneType
 import numpy as np
 import torch
 from engine import get_engine
-from moss.map import LaneType
 from torch import nn, optim
 from torch.distributions.categorical import Categorical
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter # type: ignore
 from tqdm import tqdm
 
 NN_INPUT_SCALER = 5
 
+
+ROAD_ID_START = 2_0000_0000
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -80,15 +82,20 @@ class Env:
             start_step=start_step,
         )
         # 计算观测车道
-        M = eng.get_map()
+        M:Map = eng.get_map(dict_return=False) # type:ignore
+        map_lanes_dict: dict[int, Lane] = {i.id: i for i in M.lanes}
+        all_lane_ids: list[int] = [i for i in range(eng.lane_count)]
+        all_road_ids: list[int] = [i + ROAD_ID_START for i in range(eng.road_count)]
+        lane_map = {lid: idx for idx, lid in enumerate(all_lane_ids)}
+        road_map = {rid: idx for idx, rid in enumerate(all_road_ids)}
         r_ids = []
         nrl = []
         for r in M.roads:
-            if len(r.pb.next_road_lane_plans) > 1:
-                r_ids.append(r.index)
+            if len(r.next_road_lane_plans) > 1:
+                r_ids.append(road_map[r.id])
                 nrl.append([
-                    [list(range(M.lane_map[l.lane_id_a].index, M.lane_map[l.lane_id_b].index+1)) for l in p.next_road_lanes]
-                    for p in r.pb.next_road_lane_plans
+                    [list(range(lane_map[l.lane_id_a], lane_map[l.lane_id_b]+1)) for l in p.next_road_lanes]
+                    for p in r.next_road_lane_plans
                 ])
         # for i in nrl:
         #     for j in i:
@@ -96,7 +103,7 @@ class Env:
         #         x = sum(j, [])
         #         assert x == sorted(x)
         #         assert x[-1]-x[0]+1 == len(x)
-        self.road_lanes = [sorted(l.index for l in M.roads[r].lanes if l.type == LaneType.DRIVING) for r in r_ids]
+        self.road_lanes = [sorted(lane_map[lid] for lid in M.roads[r].lane_ids if map_lanes_dict[lid].type == LaneType.LANE_TYPE_DRIVING) for r in r_ids]
         l_ids = sorted({i for i in self.road_lanes for i in i})
         l_map = {j: i for i, j in enumerate(l_ids)}
         self.l2rc = pad([sorted(l_map[i] for i in i) for i in self.road_lanes], -1)
@@ -109,7 +116,7 @@ class Env:
                 r2p.append(list(range(cnt, cnt+len(i))))
                 cnt += len(i)
                 inv_p_size.append([1/len(i) for i in i])
-        self.lane_lengths = np.maximum(1, eng.get_lane_lengths())[l_ids]
+        self.lane_lengths = np.maximum(1, np.array([l.length for l in M.lanes]))[l_ids]
         self.l_ids = l_ids
         self.r_ids = r_ids
         self.l2r = pad([[l_map[i] for i in i] for i in nrl for i in i for i in i], -1)
@@ -142,6 +149,7 @@ class Env:
         self.road_plan_ids[:] = 0
 
     def observe(self):
+        # TODO:写到这里
         c1 = self.eng.get_lane_vehicle_counts()[self.l_ids]
         c2 = self.eng.get_lane_waiting_at_end_vehicle_counts(distance_to_end=150)[self.l_ids]
         obs_1 = np.stack([
@@ -323,7 +331,7 @@ def main():
         with torch.no_grad():
             next_obs = torch.Tensor(env.observe()).to(device)
             for _ in tqdm(range(env.step_count), ncols=90):
-                action = agent.get_action_and_value(next_obs.unsqueeze(0), sample=args.sample, action_only=True)
+                action = agent.get_action_and_value(next_obs.unsqueeze(0), sample=args.sample, action_only=True) # type:ignore
                 next_obs, reward, done, info = env.step(action.view(-1).cpu().numpy())
                 next_obs = torch.Tensor(next_obs).to(device)
             print(f'{info["Throughput"]} {info["ATT-d"]:.1f} {info["ATT-f"]:.1f}')
@@ -366,11 +374,11 @@ def main():
                 global_step += 1
                 bar.update(1)
                 if done:
-                    writer.add_scalar('metric/ATT-d', info['ATT-d'], global_step)
-                    writer.add_scalar('metric/ATT-f', info['ATT-f'], global_step)
-                    writer.add_scalar('metric/Throughput', info['Throughput'], global_step)
-                writer.add_scalar('metric/Reward', info['reward'], global_step)
-            writer.add_scalar("charts/Sample Time", time.time()-_t, global_step)
+                    writer.add_scalar('metric/ATT-d', info['ATT-d'], global_step)# type:ignore
+                    writer.add_scalar('metric/ATT-f', info['ATT-f'], global_step)# type:ignore
+                    writer.add_scalar('metric/Throughput', info['Throughput'], global_step)# type:ignore
+                writer.add_scalar('metric/Reward', info['reward'], global_step)# type:ignore
+            writer.add_scalar("charts/Sample Time", time.time()-_t, global_step)# type:ignore
 
             if os.path.exists(path+'/lr.txt'):
                 try:
@@ -379,7 +387,7 @@ def main():
                     if lr != optimizer.param_groups[0]["lr"]:
                         print(f'Change lr to {lr}')
                         optimizer.param_groups[0]["lr"] = lr
-                        writer.add_scalar("charts/lr", lr, global_step)
+                        writer.add_scalar("charts/lr", lr, global_step)# type:ignore
                 except:
                     pass
             else:
@@ -485,10 +493,10 @@ def main():
             ratio = np.array([i.item() for i in [pg_loss, entropy_loss * args.ent_coef, v_loss * args.vf_coef]])
             ratio = ratio / ratio.sum()
             writer.add_scalars("losses/ratio", {
-                'policy': ratio[0],
-                'entropy': ratio[1],
-                'value': ratio[2],
-            }, global_step)
+                'policy': ratio[0], # type:ignore
+                'entropy': ratio[1],# type:ignore
+                'value': ratio[2],# type:ignore
+            }, global_step)# type:ignore
             msg = f'{loss.item():.3f} ATT: {info["ATT-d"]:.1f} TP: {info["Throughput"]}'
             bar.set_description(msg)
             if not args.debug:

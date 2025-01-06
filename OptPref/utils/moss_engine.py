@@ -16,7 +16,7 @@ def get_moss_engine(map_file, person_file, start_step):
         lane_veh_add_buffer_size=1400,
         lane_veh_remove_buffer_size=1000,
     )
-    eng.set_tl_policy_batch(range(eng.junction_count), TlPolicy.MANUAL)
+    eng.set_tl_policy_batch([i for i in range(eng.junction_count)], TlPolicy.MANUAL)
     return MossApiEngine(eng)
 class MossApiEngine:
     def __init__(self, moss_engine,):
