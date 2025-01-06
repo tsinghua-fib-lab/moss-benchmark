@@ -1,10 +1,10 @@
 from moss import Engine, LaneChange, TlPolicy, Verbosity
 
 
-def get_engine(map_file, agent_file, start_step):
+def get_engine(map_file, person_file, start_step):
     eng = Engine(
         map_file=map_file,
-        agent_file=agent_file,
+        person_file=person_file,
         start_step=start_step,
         verbose_level=Verbosity.NO_OUTPUT,
         lane_change=LaneChange.MOBIL,

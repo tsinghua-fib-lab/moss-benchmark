@@ -25,14 +25,14 @@ def main():
 
     eng = get_engine(
         map_file=f'{args.data}/map.bin',
-        agent_file=f'{args.data}/agents.bin',
+        person_file=f'{args.data}/agents.bin',
         start_step=args.start,
     )
     t = time.time()
     eng.set_tl_policy_batch(range(eng.junction_count), TlPolicy.MAX_PRESSURE)
     eng.next_step(args.steps)
     with open(f'{path}/info.log', 'a') as f:
-        f.write(f"{eng.get_departed_vehicle_average_traveling_time():.3f} {eng.get_finished_vehicle_count()} {time.time()-t:.3f}\n")
+        f.write(f"{eng.get_departed_person_average_traveling_time():.3f} {eng.get_finished_person_count()} {time.time()-t:.3f}\n")
 
 
 main()

@@ -50,12 +50,12 @@ class CityFlowApiEngine:
         # 模拟时间＋偏移时间
         return self.cityflow_engine.get_current_time() + self.offset_time
 
-    def get_departed_vehicle_average_traveling_time(
+    def get_departed_person_average_traveling_time(
         self,
     ) -> float:  # type:ignore
         return self.cityflow_engine._get_departed_vehicle_average_traveling_time()
 
-    def get_finished_vehicle_average_traveling_time(
+    def get_finished_person_average_traveling_time(
         self,
     ) -> float:  # type:ignore
         return self.cityflow_engine._get_finished_vehicle_average_traveling_time()

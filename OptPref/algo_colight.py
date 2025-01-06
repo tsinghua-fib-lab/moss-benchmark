@@ -32,7 +32,7 @@ class EnvBase:
         if engine_type=="moss":
             self.eng = get_moss_engine(
                     map_file=f'{data_path}/map.bin',
-                    agent_file=f'{data_path}/agents.bin',
+                    person_file=f'{data_path}/agents.bin',
                     start_step=start_step,
                 ) 
         elif engine_type=="cityflow":
@@ -255,9 +255,9 @@ class EnvBase:
         _step_end_time = time.time()
         self.info["SIM_TIME"]+=(_step_end_time-_step_start_time)
         if self._step >= self.step_count:
-            self.info['ATT'] = self.eng.get_departed_vehicle_average_traveling_time()
-            self.info['ATT_finished'] = self.eng.get_finished_vehicle_average_traveling_time()
-            self.info['Throughput'] = self.eng.get_finished_vehicle_count()
+            self.info['ATT'] = self.eng.get_departed_person_average_traveling_time()
+            self.info['ATT_finished'] = self.eng.get_finished_person_average_traveling_time()
+            self.info['Throughput'] = self.eng.get_finished_person_count()
             self._step = 0
             _rl_time = self.info["RL_TIME"]
             _sim_time = self.info["SIM_TIME"]

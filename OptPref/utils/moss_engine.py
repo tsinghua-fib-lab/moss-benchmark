@@ -6,10 +6,10 @@ import numpy as np
 
 __all__ = ["get_moss_engine"]
 
-def get_moss_engine(map_file, agent_file, start_step):
+def get_moss_engine(map_file, person_file, start_step):
     eng = Engine(
         map_file=map_file,
-        agent_file=agent_file,
+        person_file=person_file,
         start_step=start_step,
         verbose_level=Verbosity.NO_OUTPUT,
         lane_change=LaneChange.MOBIL,
@@ -27,20 +27,20 @@ class MossApiEngine:
     ) -> float:  # type:ignore
         return self.moss_engine.get_current_time()
     
-    def get_departed_vehicle_average_traveling_time(
+    def get_departed_person_average_traveling_time(
         self,
     ) -> float:  # type:ignore
-        return self.moss_engine.get_departed_vehicle_average_traveling_time()
+        return self.moss_engine.get_departed_person_average_traveling_time()
     
-    def get_finished_vehicle_average_traveling_time(
+    def get_finished_person_average_traveling_time(
         self,
     ) -> float:  # type:ignore
-        return self.moss_engine.get_finished_vehicle_average_traveling_time()
+        return self.moss_engine.get_finished_person_average_traveling_time()
     
     def get_finished_vehicle_count(
         self,
     ) -> int:  # type:ignore
-        return self.moss_engine.get_finished_vehicle_count()
+        return self.moss_engine.get_finished_person_count()
     
     def get_junction_inout_lanes(
         self,

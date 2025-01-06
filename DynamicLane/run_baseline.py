@@ -31,7 +31,7 @@ def main():
 
     eng = get_engine(
         map_file=f'{args.data}/map.bin',
-        agent_file=f'{args.data}/agents.bin',
+        person_file=f'{args.data}/agents.bin',
         start_step=args.start,
     )
     M = eng.get_map()
@@ -73,9 +73,9 @@ def main():
         cnt = eng.get_lane_waiting_vehicle_counts()
         cnt = np.minimum(200, cnt)/200*5
         reward += np.mean([-np.mean(cnt[i]) for i in road_lanes])
-    print(f'{args.algo}\tATT: {eng.get_departed_vehicle_average_traveling_time():.3f}\tTP: {eng.get_finished_vehicle_count()} Reward:{reward:.3f}')
+    print(f'{args.algo}\tATT: {eng.get_departed_person_average_traveling_time():.3f}\tTP: {eng.get_finished_person_count()} Reward:{reward:.3f}')
     with open(f'{path}/info.log', 'a') as f:
-        f.write(f"{eng.get_departed_vehicle_average_traveling_time():.3f} {eng.get_finished_vehicle_count()} {time.time()-t:.3f}\n")
+        f.write(f"{eng.get_departed_person_average_traveling_time():.3f} {eng.get_finished_person_count()} {time.time()-t:.3f}\n")
 
 
 main()

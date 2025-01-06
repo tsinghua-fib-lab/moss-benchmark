@@ -18,14 +18,14 @@ def main():
     t = time.time()
     eng = Engine(
         map_file=f'data/{args.data}/moss/map.bin',
-        agent_file=f'data/{args.data}/moss/agents.bin',
+        person_file=f'data/{args.data}/moss/agents.bin',
         disable_aoi_out_control=True
     )
     log = []
     with tqdm(range(args.steps)) as bar:
         for _ in bar:
             t = time.time()
-            bar.set_description(f'veh: {eng.get_running_vehicle_count()}')
+            bar.set_description(f'veh: {eng.get_running_person_count()}')
             eng.next_step()
             log.append(time.time() - t)
     json.dump(log, open(args.output, 'w'))

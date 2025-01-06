@@ -143,14 +143,14 @@ async def main():
         )
         _routing.close()
         # morning peak 6-12
-        cmd = f"python3 exp/utils/dump_att_tp.py --map_path {loop_map_file} --agent_path {loop_agent_file_to_work} --tp_output_path {loop_tp_path} --output_path {loop_att_path} --device_id {args.device_id}".split(
+        cmd = f"python3 exp/utils/dump_att_tp.py --map_path {loop_map_file} --person_path {loop_agent_file_to_work} --tp_output_path {loop_tp_path} --output_path {loop_att_path} --device_id {args.device_id}".split(
             " "
         )
         subprocess.run(cmd, check=True)
         att_0 = pickle.load(open(loop_att_path, "rb"))
         tp_0 = pickle.load(open(loop_tp_path, "rb"))
         # evening peak 17-23
-        cmd = f"python3 exp/utils/dump_att_tp.py --map_path {loop_map_file} --start_step {17*3600} --agent_path {loop_agent_file_to_home} --tp_output_path {loop_tp_path} --output_path {loop_att_path} --device_id {args.device_id}".split(
+        cmd = f"python3 exp/utils/dump_att_tp.py --map_path {loop_map_file} --start_step {17*3600} --person_path {loop_agent_file_to_home} --tp_output_path {loop_tp_path} --output_path {loop_att_path} --device_id {args.device_id}".split(
             " "
         )
         subprocess.run(cmd, check=True)

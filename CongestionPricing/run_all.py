@@ -7,9 +7,8 @@ from enum import Enum
 import numpy as np
 import torch
 from eGCN_ppo import Agent as eGCN_agent
-from moss import Engine, LaneChange, TlPolicy, Verbosity
-from moss.agent import Agents
-from moss.map import LaneType, Map
+from mosstool.type import Persons,Person,Map
+from moss import Engine, TlPolicy, Verbosity
 from tqdm import tqdm
 
 
@@ -27,7 +26,7 @@ class Env:
     def __init__(
         self,
         map_file: str,
-        agent_file: str,
+        person_file: str,
         start_step: int,
         step_interval: int,
         step_reset: int,
@@ -46,29 +45,30 @@ class Env:
         self.vehicle_policy = vehicle_policy
         self.start_step = self.time = start_step
         self.step_count = 0
-        agents = Agents(agent_file).agents
-        assert len(agents) % n_routes == 0
-        self.map = Map(map_file)
-        self.agents = [
+        with open(person_file, "rb") as f:
+            persons = Persons()
+            persons.ParseFromString(f.read())
+            persons = persons.persons
+        assert len(persons) % n_routes == 0
+        with open(map_file, "rb") as f:
+            self.map = Map()
+            self.map.ParseFromString(f.read())
+        self.persons = [
             [
-                agents[i].departure_time,
-                [[i+j, [self.map.road_map[i].index for i in agents[i+j].route]] for j in range(n_routes)]
-            ] for i in range(0, len(agents), n_routes)
+                persons[i].schedules[0].departure_time,
+                [[i+j, [self.map.road_map[i].index for i in persons[i+j].route]] for j in range(n_routes)]
+            ] for i in range(0, len(persons), n_routes)
         ]
-        self.agents.sort(key=lambda x: -x[0])
-        self._agents = self.agents[:]
+        self.persons.sort(key=lambda x: -x[0])
+        self._persons = self.persons[:]
         self.eng = Engine(
             map_file=map_file,
-            agent_file=agent_file,
+            person_file=person_file,
             start_step=start_step,
             verbose_level=Verbosity.NO_OUTPUT,
-            lane_change=LaneChange.MOBIL,
-            lane_veh_add_buffer_size=3000,
-            lane_veh_remove_buffer_size=3000,
         )
-        self.eng.set_tl_policy_batch(range(self.eng.junction_count), TlPolicy.FIXED_TIME)
-        self.eng.set_tl_duration_batch(range(self.eng.junction_count), 30)
-        self.eng.set_vehicle_enable_batch(range(self.eng.vehicle_count), False)
+        self.eng.set_tl_policy_batch([i for i in range(self.eng.junction_count)], TlPolicy.FIXED_TIME)
+        self.eng.set_tl_duration_batch([i for i in range(self.eng.junction_count)], 30)
         self.road_prices = np.zeros(len(self.map.roads))
         l = np.array([r.lanes[0].geom.length for r in self.map.roads])
         self.road_fuel_cost = l*fuel_cost_weight
@@ -93,7 +93,7 @@ class Env:
     def _reset(self):
         self.time = self.start_step
         self.step_count = 0
-        self.agents = self._agents[:]
+        self.persons = self._persons[:]
         self.road_prices[:] = 0
         for i in self.road_travel_time:
             i.clear()
@@ -101,8 +101,8 @@ class Env:
 
     def _step(self):
         # 处理agent，到时间则放行
-        while self.agents and self.agents[-1][0] <= self.time+1:
-            irs = self.agents.pop()[1]
+        while self.persons and self.persons[-1][0] <= self.time+1:
+            irs = self.persons.pop()[1]
             if self.vehicle_policy == VehiclePolicy.SHORTEST:
                 choice = irs[0][0]
             elif self.vehicle_policy == VehiclePolicy.RANDOM:
@@ -138,8 +138,8 @@ class Env:
 
     def step_ppo(self, action):
         self.road_prices[:] = action  # *self.road_fuel_cost
-        # r = self.eng.get_finished_vehicle_count()
-        # r = self.eng.get_departed_vehicle_average_traveling_time()
+        # r = self.eng.get_finished_person_count()
+        # r = self.eng.get_departed_person_average_traveling_time()
         r = self.eng.get_vehicle_total_distances().sum()
         if not np.isfinite(r):
             r = 0
@@ -150,8 +150,8 @@ class Env:
         # v = self.eng.get_vehicle_speeds()
         # v = v[v >= 0]
         # r = (np.mean(v)-10)/10 if len(v) else 0
-        # r = (self.eng.get_finished_vehicle_count()-r)/50
-        # r = (r-self.eng.get_departed_vehicle_average_traveling_time())/10
+        # r = (self.eng.get_finished_person_count()-r)/50
+        # r = (r-self.eng.get_departed_person_average_traveling_time())/10
         r = (self.eng.get_vehicle_total_distances().sum()-r)/1e6
         if not np.isfinite(r):
             r = 0
@@ -160,9 +160,9 @@ class Env:
         self.step_count += 1
         done = False
         if self.step_count == self.step_reset:
-            self.info['ATT-d'] = self.eng.get_departed_vehicle_average_traveling_time()
-            self.info['ATT-f'] = self.eng.get_finished_vehicle_average_traveling_time()
-            self.info['Throughput'] = self.eng.get_finished_vehicle_count()
+            self.info['ATT-d'] = self.eng.get_departed_person_average_traveling_time()
+            self.info['ATT-f'] = self.eng.get_finished_person_average_traveling_time()
+            self.info['Throughput'] = self.eng.get_finished_person_count()
             self._reset()
             done = True
             s = self.observe()
@@ -170,10 +170,10 @@ class Env:
 
     def get_metrics(self):
         return (
-            self.eng.get_running_vehicle_count(),
-            self.eng.get_finished_vehicle_count(),
-            self.eng.get_finished_vehicle_average_traveling_time(),
-            self.eng.get_departed_vehicle_average_traveling_time(),
+            self.eng.get_running_person_count(),
+            self.eng.get_finished_person_count(),
+            self.eng.get_finished_person_average_traveling_time(),
+            self.eng.get_departed_person_average_traveling_time(),
         )
 
     def generate_graph(self):
@@ -195,7 +195,7 @@ class Env:
 
     def get_accumulated_reward(self):
         # 累计奖励为完成的车辆数
-        return self.eng.get_finished_vehicle_count()/100
+        return self.eng.get_finished_person_count()/100
 
     def get_obs(self):
         # 观测值为道路的车辆数
@@ -312,7 +312,7 @@ def main():
         policy = VehiclePolicy.OPTIMUM
     env = Env(
         map_file=f'{args.data}/map.bin',
-        agent_file=f'{args.data}/agents.bin',
+        person_file=f'{args.data}/persons.bin',
         start_step=args.start,
         step_interval=args.interval,
         step_reset=args.reset+int(not args.egcn_train),
@@ -336,8 +336,8 @@ def main():
     t = time.time()
     for _ in tqdm(range(args.reset), ncols=100):
         controller.step()
-    att = env.eng.get_departed_vehicle_average_traveling_time()
-    tp = env.eng.get_finished_vehicle_count()
+    att = env.eng.get_running_person_average_traveling_time()
+    tp = env.eng.get_finished_person_count()
     print(f"ATT: {att:.3f} TP: {tp}")
     with open(f'{path}/info.log', 'a') as f:
         f.write(f"{att:.3f} {tp} {time.time()-t:.3f}\n")

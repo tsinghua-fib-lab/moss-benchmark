@@ -75,7 +75,7 @@ class Env:
         self.max_veh_cnt = max_veh_cnt
         self.eng = eng = get_engine(
             map_file=f'{data_path}/map.bin',
-            agent_file=f'{data_path}/agents.bin',
+            person_file=f'{data_path}/agents.bin',
             start_step=start_step,
         )
         self.j_ids = j_ids = [i for i, j in enumerate(eng.get_junction_phase_counts()) if j > 1]
@@ -155,9 +155,9 @@ class Env:
         self._step += 1
         done = False
         if self._step >= self.step_count:
-            self.info['ATT-d'] = self.eng.get_departed_vehicle_average_traveling_time()
-            self.info['ATT-f'] = self.eng.get_finished_vehicle_average_traveling_time()
-            self.info['Throughput'] = self.eng.get_finished_vehicle_count()
+            self.info['ATT-d'] = self.eng.get_departed_person_average_traveling_time()
+            self.info['ATT-f'] = self.eng.get_finished_person_average_traveling_time()
+            self.info['Throughput'] = self.eng.get_finished_person_count()
             self._step = 0
             self.reset()
             done = True

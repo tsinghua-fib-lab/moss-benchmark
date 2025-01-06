@@ -30,7 +30,7 @@ class Env:
         self.log_dir = log_dir
         self.eng = get_engine(
             map_file=f'{data_path}/map.bin',
-            agent_file=f'{data_path}/agents.bin',
+            person_file=f'{data_path}/agents.bin',
             start_step=start_step,
         )
         self.alpha = alpha
@@ -360,9 +360,9 @@ class Env:
         self._step += 1
         done = False
         if self._step >= self.step_count:
-            self.info['ATT'] = self.eng.get_departed_vehicle_average_traveling_time()
-            self.info['ATT_finished'] = self.eng.get_finished_vehicle_average_traveling_time()
-            self.info['Throughput'] = self.eng.get_finished_vehicle_count()
+            self.info['ATT'] = self.eng.get_departed_person_average_traveling_time()
+            self.info['ATT_finished'] = self.eng.get_finished_person_average_traveling_time()
+            self.info['Throughput'] = self.eng.get_finished_person_count()
             self._step = 0
             self.reset()
             done = True

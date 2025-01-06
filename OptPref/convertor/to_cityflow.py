@@ -17,7 +17,7 @@ JUNC_UID_START = 3_0000_0000
 
 def convert(
     map_file: str,
-    agent_file: str,
+    person_file: str,
     output_map: str,
     output_agent: str,
     time_offset: float = 0,
@@ -26,7 +26,7 @@ def convert(
     with open(map_file, "rb") as f:
         M = Map()
         M.ParseFromString(f.read())
-    with open(agent_file, "rb") as f:
+    with open(person_file, "rb") as f:
         A = Persons()
         A.ParseFromString(f.read())
     intersections = []

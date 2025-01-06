@@ -50,13 +50,13 @@ if not os.path.exists("./LOOP_DATA/"):
 all_build_way_ids = pickle.load(open(ALL_CANDIDATE_WAY_PATH, "rb"))
 loop_v_cnts_path = f"./LOOP_DATA/BUILD_{CITY}_ave_v_cnts.pkl"
 # morning peak
-cmd = f"python3 exp/utils/dump_v_cnts.py --map_path {ORIG_MAP_PATH} --agent_path {ORIG_TRIP_PATH} --output_path {loop_v_cnts_path} --device_id {DEVICE_ID}".split(
+cmd = f"python3 exp/utils/dump_v_cnts.py --map_path {ORIG_MAP_PATH} --person_path {ORIG_TRIP_PATH} --output_path {loop_v_cnts_path} --device_id {DEVICE_ID}".split(
     " "
 )
 subprocess.run(cmd, cwd="./", check=True)
 ave_v_cnts_morning = pickle.load(open(loop_v_cnts_path, "rb"))
 # evening peak
-cmd = f"python3 exp/utils/dump_v_cnts.py --map_path {ORIG_MAP_PATH} --start_step {17*3600} --agent_path {ORIG_TRIP_PATH} --output_path {loop_v_cnts_path} --device_id {DEVICE_ID}".split(
+cmd = f"python3 exp/utils/dump_v_cnts.py --map_path {ORIG_MAP_PATH} --start_step {17*3600} --person_path {ORIG_TRIP_PATH} --output_path {loop_v_cnts_path} --device_id {DEVICE_ID}".split(
     " "
 )
 subprocess.run(cmd, cwd="./", check=True)
