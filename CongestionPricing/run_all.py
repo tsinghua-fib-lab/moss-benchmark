@@ -60,7 +60,7 @@ class Env:
         map_roads_dict:dict[int,Any] = {i.id:i for i in self.map.roads}
         self.map_lanes_dict = map_lanes_dict
         self.map_roads_dict = map_roads_dict
-        self.all_road_ids:list[int] = [i + ROAD_ID_START for i in range(self.eng.road_count)]
+        self.all_road_ids:list[int] = [i + ROAD_ID_START for i in range(len(map_roads_dict))]
         self.all_person_ids:list[int] = [p.id for p in persons]
         self.road_map = {rid:idx for idx,rid in enumerate(self.all_road_ids)}
         self.persons = [
