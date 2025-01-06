@@ -6,13 +6,13 @@ for city in beijing shanghai newyork paris; do
     for condition in smooth normal congested; do
         args="--city $city --map_path ./data/moss.map_${city}.pb --trip_path ./data/${condition}_${city}_trip.pb --opt_way_path ./data/${condition}_${city}_opt_ways.pkl"
         # NoChange
-        python3 exp/run.py --iter_type none   --epochs 1  $args
+        python3 exp/run.py --algo none   --epochs 1  $args
         # Random
-        python3 exp/run.py --iter_type random --epochs 5  $args
+        python3 exp/run.py --algo random --epochs 5  $args
         # Rule
-        python3 exp/run.py --iter_type rule   --epochs 1  $args
+        python3 exp/run.py --algo rule   --epochs 1  $args
         # GeneralBO
-        python3 exp/run.py --iter_type bo     --epochs 20 $args
+        python3 exp/run.py --algo bo     --epochs 20 $args
         # Simulated annealing
         python3 exp/run_sa.py                             $args
     done
