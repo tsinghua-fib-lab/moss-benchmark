@@ -9,7 +9,7 @@ for city in beijing shanghai newyork paris; do
 done
 # Select 50 roads out of constructed roads with the highest vehicle count during the simulation of morning peak and evening peak as the optimization set.
 for city in beijing shanghai newyork paris; do
-        for condition in smooth normal congested; do
+        for condition in smooth normal congest; do
             python3 exp/select_50_optimize_way_ids.py \
                 --opt_way_path ./data/${condition}_${city}_opt_ways.pkl \
                 --city $city \

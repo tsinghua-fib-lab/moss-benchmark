@@ -33,7 +33,7 @@ all_v_cnts: list[list[int]] = []
 for _ in range(int((3600 * 6 + 1 - 1) / 300)):
     eng.next_step(n=300)
     _road_id2cnt: dict[int, int] = eng.get_road_vehicle_counts()
-    all_v_cnts.append([_road_id2cnt[road_id] for road_id in all_road_ids])
+    all_v_cnts.append([_road_id2cnt.get(road_id,0) for road_id in all_road_ids])
 all_v_cnts_array = np.array(all_v_cnts)
 ave_v_cnts = np.mean(np.abs(all_v_cnts_array), axis=0)
 pickle.dump(ave_v_cnts, open(args.output_path, "wb"))
