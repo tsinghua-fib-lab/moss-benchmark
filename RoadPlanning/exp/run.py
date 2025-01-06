@@ -32,7 +32,7 @@ def get_args():
 
 
 args = get_args()
-path = time.strftime(f"log/{args.algo}/RoadPlanning/%Y%m%d-%H%M%S")
+path = time.strftime(f"log/{args.algo}/{args.city}_{args.epochs}/%Y%m%d-%H%M%S")
 if not os.path.exists(path):
     os.makedirs(path, exist_ok=True)
 logging.basicConfig(
