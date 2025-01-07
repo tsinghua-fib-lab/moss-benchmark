@@ -201,7 +201,7 @@ class Env:
         fetched_persons = self.eng.fetch_persons()
         _lane_vehicle_dict = {
             lid: pid
-            for pid, lid in zip(fetched_persons["ids"], fetched_persons["lane_id"])
+            for pid, lid in zip(fetched_persons["id"], fetched_persons["lane_id"])
         }
         c1 = np.array([_lane_vehicle_dict[lid] for lid in self.all_lane_ids])[
             self.l_ids

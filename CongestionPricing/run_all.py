@@ -126,7 +126,7 @@ class Env:
         fetched_persons = self.eng.fetch_persons()
         _vehicle_lane_dict = {
             pid: lid
-            for pid, lid in zip(fetched_persons["ids"], fetched_persons["lane_id"])
+            for pid, lid in zip(fetched_persons["id"], fetched_persons["lane_id"])
         }
         self.vehicle_lane = np.array(
             [_vehicle_lane_dict[pid] for pid in self.all_person_ids]
@@ -172,7 +172,7 @@ class Env:
         fetched_persons = self.eng.fetch_persons()
         _vehicle_lane_dict = {
             pid: lid
-            for pid, lid in zip(fetched_persons["ids"], fetched_persons["lane_id"])
+            for pid, lid in zip(fetched_persons["id"], fetched_persons["lane_id"])
         }
         vl = np.array([_vehicle_lane_dict[pid] for pid in self.all_person_ids])
         mask = vl != self.vehicle_lane
