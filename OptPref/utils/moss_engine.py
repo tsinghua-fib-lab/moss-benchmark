@@ -1,6 +1,6 @@
-from moss import Engine, LaneChange, TlPolicy, Verbosity
-from moss.map import LaneTurn, LaneType, LightState
-from typing import Dict, List, Tuple
+from moss import Engine, TlPolicy, Verbosity
+from mosstool.type import LaneTurn, LaneType,Map
+import pycityproto.city.map.v2.light_pb2 as lightv2
 from numpy.typing import NDArray
 import numpy as np
 
@@ -8,88 +8,102 @@ __all__ = ["get_moss_engine"]
 
 def get_moss_engine(map_file, person_file, start_step):
     eng = Engine(
+        name="OptPerf",
         map_file=map_file,
         person_file=person_file,
         start_step=start_step,
         verbose_level=Verbosity.NO_OUTPUT,
-        lane_change=LaneChange.MOBIL,
-        lane_veh_add_buffer_size=1400,
-        lane_veh_remove_buffer_size=1000,
     )
     eng.set_tl_policy_batch([i for i in range(eng.junction_count)], TlPolicy.MANUAL)
     return MossApiEngine(eng)
 class MossApiEngine:
-    def __init__(self, moss_engine,):
-        self.moss_engine = moss_engine
+    def __init__(self, moss_engine:Engine,):
+        self.moss_engine:Engine = moss_engine
+        self.map_pb:Map = moss_engine.get_map(dict_return=False) # type:ignore
 
     def get_current_time(
         self,
-    ) -> float:  # type:ignore
+    ) -> float:
         return self.moss_engine.get_current_time()
     
     def get_departed_person_average_traveling_time(
         self,
-    ) -> float:  # type:ignore
+    ) -> float: 
         return self.moss_engine.get_departed_person_average_traveling_time()
     
     def get_finished_person_average_traveling_time(
         self,
-    ) -> float:  # type:ignore
+    ) -> float: 
         return self.moss_engine.get_finished_person_average_traveling_time()
     
     def get_finished_vehicle_count(
         self,
-    ) -> int:  # type:ignore
+    ) -> int:  
         return self.moss_engine.get_finished_person_count()
     
     def get_junction_inout_lanes(
         self,
-    ) -> Tuple[List[List[int]], List[List[int]]]:  # type:ignore
-        return self.moss_engine.get_junction_inout_lanes()
+    ) -> tuple[list[list[int]], list[list[int]]]:
+        in_lane_indexes:list[list[int]] = []
+        out_lane_indexes:list[list[int]] = []
+        lane_id_2_index = {l.id:i for i,l in enumerate(self.map_pb.lanes)}
+        lanes_dict = {l.id:l for i,l in enumerate(self.map_pb.lanes)}
+        for j in self.map_pb.junctions:
+            lane_in, lane_out = [],[]
+            for lid in j.lane_ids:
+                l =  lanes_dict[lid]
+                if l.type == LaneType.LANE_TYPE_DRIVING:
+                    lane_in.append(lane_id_2_index[l.predecessors[0].id])
+                    lane_out.append(lane_id_2_index[l.successors[0].id])      
+            in_lane_indexes.append(lane_in)     
+            out_lane_indexes.append(lane_out)                          
+        return (in_lane_indexes,out_lane_indexes)
     
     
     def get_junction_phase_counts(
         self,
-    ) -> NDArray[np.int32]:  # type:ignore
+    ) -> NDArray[np.int32]:
         return self.moss_engine.get_junction_phase_counts()
     
     def get_junction_phase_lanes(
         self,
-    ) -> List[List[Tuple[List[int], List[int]]]]:  # type:ignore
+    ) -> list[list[tuple[list[int], list[int]]]]:
         return self.moss_engine.get_junction_phase_lanes()
     
     def get_lane_lengths(
         self,
-    ) -> NDArray[np.int8]:  # type:ignore
-        # ATTENTION:CityFlow中所有的get_lane_xxx() API只返回road lane
-        return self.moss_engine.get_lane_lengths()
+    ) -> NDArray[np.float32]:
+        return np.array([l.length for l in self.map_pb.lanes],dtype=np.float32)
     
     def get_lane_vehicle_counts(
         self,
-    ) -> NDArray:  # type:ignore
+    ) -> NDArray: 
         return np.array(self.moss_engine.get_lane_vehicle_counts(), dtype=int)
 
     def get_lane_waiting_at_end_vehicle_counts(
         self, speed_threshold: float = 0.1, distance_to_end: float = 100
     ) -> NDArray:  # type:ignore
-        return np.array(
-            self.moss_engine.get_lane_waiting_at_end_vehicle_counts(
+        
+        cnt_dict = self.moss_engine.get_lane_waiting_at_end_vehicle_counts(
                 speed_threshold, distance_to_end
-            ),
+            )
+        cnt = [cnt_dict[l.id] for l in self.map_pb.lanes]
+        return np.array(
+            cnt,
             dtype=int,
         )
 
     def get_lane_waiting_vehicle_counts(
         self, speed_threshold: float = 0.1
-    ) -> NDArray:  # type:ignore
+    ) -> NDArray: 
         return np.array(
             self.moss_engine.get_lane_waiting_vehicle_counts(speed_threshold),
             dtype=int,
         )
     
     def set_tl_phase_batch(
-        self, junction_indices: List[int], phase_indices: List[int]
-    ):  # type:ignore
+        self, junction_indices: list[int], phase_indices: list[int]
+    ):
         self.moss_engine.set_tl_phase_batch(junction_indices, phase_indices)
 
     def next_step(self, n: int = 1):
@@ -126,12 +140,12 @@ class MossApiEngine:
                 phase_label_list.append(labels)
             return in_lanes_list, out_lanes_list, phase_lanes_list, phase_label_list
 
-    def get_lane_length_dict(self) -> Dict[int, float]:  # type:ignore
+    def get_lane_length_dict(self) -> dict[int, float]:  # type:ignore
         M = self.moss_engine.get_map()
         return {l_id:l.length for l_id,l in enumerate(M.lanes)}
     
     def make_checkpoint(self,)->int:
         return self.moss_engine.make_checkpoint()
     
-    def reset(self,cid)->int:
+    def reset(self,cid:int):
         return self.moss_engine.restore_checkpoint(cid)
