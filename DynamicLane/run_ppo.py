@@ -7,19 +7,20 @@ import sys
 import time
 from glob import glob
 
-from mosstool.type import Map,LaneType
 import numpy as np
 import torch
 from engine import get_engine
+from mosstool.type import Lane, LaneType, Map
 from torch import nn, optim
 from torch.distributions.categorical import Categorical
-from torch.utils.tensorboard import SummaryWriter # type: ignore
+from torch.utils.tensorboard import SummaryWriter  # type: ignore
 from tqdm import tqdm
 
 NN_INPUT_SCALER = 5
 
 
 ROAD_ID_START = 2_0000_0000
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -28,35 +29,67 @@ def parse_args():
     parser.add_argument("--suffix", type=str)
     parser.add_argument("--seed", type=int, default=43, help="seed of the experiment")
 
-    parser.add_argument('--data', type=str, default='data/us_newyork')
-    parser.add_argument('--start', type=int, default=0)
-    parser.add_argument('--steps', type=int, default=7200)
-    parser.add_argument('--interval', type=int, default=180)
-    parser.add_argument('--mlp', type=str, default='256,256')
+    parser.add_argument("--data", type=str, default="data/us_newyork")
+    parser.add_argument("--start", type=int, default=0)
+    parser.add_argument("--steps", type=int, default=7200)
+    parser.add_argument("--interval", type=int, default=180)
+    parser.add_argument("--mlp", type=str, default="256,256")
 
     parser.add_argument("--total-timesteps", type=int, default=100000000)
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--lr-scale", type=float, default=0)
     parser.add_argument("--lr-anneal", type=float, default=0)
-    parser.add_argument("--gamma", type=float, default=0.99, help="the discount factor gamma")
-    parser.add_argument("--gae", type=bool, default=True, help="Use GAE for advantage computation")
-    parser.add_argument("--gae-lambda", type=float, default=0.9, help="the lambda for the general advantage estimation")
-    parser.add_argument("--num-minibatches", type=int, default=8, help="the number of mini-batches")
-    parser.add_argument("--update-epochs", type=int, default=16, help="the K epochs to update the policy")
-    parser.add_argument("--ent-coef", type=float, default=0, help="coefficient of the entropy")
-    parser.add_argument("--vf-coef", type=float, default=0.5, help="coefficient of the value function")
-    parser.add_argument("--clip-coef", type=float, default=0.25, help="the surrogate clipping coefficient")
-    parser.add_argument("--max-grad-norm", type=float, default=0.5, help="the maximum norm for the gradient clipping")
-    parser.add_argument('--norm-adv', action='store_true')
+    parser.add_argument(
+        "--gamma", type=float, default=0.99, help="the discount factor gamma"
+    )
+    parser.add_argument(
+        "--gae", type=bool, default=True, help="Use GAE for advantage computation"
+    )
+    parser.add_argument(
+        "--gae-lambda",
+        type=float,
+        default=0.9,
+        help="the lambda for the general advantage estimation",
+    )
+    parser.add_argument(
+        "--num-minibatches", type=int, default=8, help="the number of mini-batches"
+    )
+    parser.add_argument(
+        "--update-epochs",
+        type=int,
+        default=16,
+        help="the K epochs to update the policy",
+    )
+    parser.add_argument(
+        "--ent-coef", type=float, default=0, help="coefficient of the entropy"
+    )
+    parser.add_argument(
+        "--vf-coef", type=float, default=0.5, help="coefficient of the value function"
+    )
+    parser.add_argument(
+        "--clip-coef",
+        type=float,
+        default=0.25,
+        help="the surrogate clipping coefficient",
+    )
+    parser.add_argument(
+        "--max-grad-norm",
+        type=float,
+        default=0.5,
+        help="the maximum norm for the gradient clipping",
+    )
+    parser.add_argument("--norm-adv", action="store_true")
 
-    parser.add_argument("--load", type=str, default="", help='model checkpoint')
-    parser.add_argument('--load-step', type=int, default=-1)
-    parser.add_argument('--num-steps', type=int, default=128, help='env rollout steps')
-    parser.add_argument('--save-interval', type=int, default=1000, help='checkpoint save interval')
+    parser.add_argument("--load", type=str, default="", help="model checkpoint")
+    parser.add_argument("--load-step", type=int, default=-1)
+    parser.add_argument("--num-steps", type=int, default=128, help="env rollout steps")
+    parser.add_argument(
+        "--save-interval", type=int, default=1000, help="checkpoint save interval"
+    )
 
-    parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--eval', action='store_true')
-    parser.add_argument('--sample', action='store_true')
+    parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--eval", action="store_true")
+    parser.add_argument("--sample", action="store_true")
 
     args = parser.parse_args()
     args.debug |= args.eval
@@ -67,25 +100,27 @@ def parse_args():
 
 def pad(arr, value):
     l = max(len(i) for i in arr)
-    return np.array([
-        i+[value]*(l-len(i)) for i in arr
-    ])
+    return np.array([i + [value] * (l - len(i)) for i in arr])
 
 
 class Env:
-    def __init__(self, data_path, start_step, step_size, step_count, log_dir, max_veh_cnt=200):
+    def __init__(
+        self, data_path, start_step, step_size, step_count, log_dir, max_veh_cnt=200
+    ):
         self.log_dir = log_dir
         self.max_veh_cnt = max_veh_cnt
         self.eng = eng = get_engine(
-            map_file=f'{data_path}/map.bin',
-            person_file=f'{data_path}/agents.bin',
+            map_file=f"{data_path}/map.bin",
+            person_file=f"{data_path}/agents.bin",
             start_step=start_step,
         )
         # 计算观测车道
-        M:Map = eng.get_map(dict_return=False) # type:ignore
+        M: Map = eng.get_map(dict_return=False)  # type:ignore
         map_lanes_dict: dict[int, Lane] = {i.id: i for i in M.lanes}
         all_lane_ids: list[int] = [i for i in range(eng.lane_count)]
         all_road_ids: list[int] = [i + ROAD_ID_START for i in range(eng.road_count)]
+        self.all_lane_ids = all_lane_ids
+        self.all_road_ids = all_road_ids
         lane_map = {lid: idx for idx, lid in enumerate(all_lane_ids)}
         road_map = {rid: idx for idx, rid in enumerate(all_road_ids)}
         r_ids = []
@@ -93,17 +128,31 @@ class Env:
         for r in M.roads:
             if len(r.next_road_lane_plans) > 1:
                 r_ids.append(road_map[r.id])
-                nrl.append([
-                    [list(range(lane_map[l.lane_id_a], lane_map[l.lane_id_b]+1)) for l in p.next_road_lanes]
-                    for p in r.next_road_lane_plans
-                ])
+                nrl.append(
+                    [
+                        [
+                            list(
+                                range(lane_map[l.lane_id_a], lane_map[l.lane_id_b] + 1)
+                            )
+                            for l in p.next_road_lanes
+                        ]
+                        for p in r.next_road_lane_plans
+                    ]
+                )
         # for i in nrl:
         #     for j in i:
         #         assert all(j)
         #         x = sum(j, [])
         #         assert x == sorted(x)
         #         assert x[-1]-x[0]+1 == len(x)
-        self.road_lanes = [sorted(lane_map[lid] for lid in M.roads[r].lane_ids if map_lanes_dict[lid].type == LaneType.LANE_TYPE_DRIVING) for r in r_ids]
+        self.road_lanes = [
+            sorted(
+                lane_map[lid]
+                for lid in M.roads[r].lane_ids
+                if map_lanes_dict[lid].type == LaneType.LANE_TYPE_DRIVING
+            )
+            for r in r_ids
+        ]
         l_ids = sorted({i for i in self.road_lanes for i in i})
         l_map = {j: i for i, j in enumerate(l_ids)}
         self.l2rc = pad([sorted(l_map[i] for i in i) for i in self.road_lanes], -1)
@@ -113,51 +162,60 @@ class Env:
         for i in nrl:
             assert len(i) == 2
             for i in i:
-                r2p.append(list(range(cnt, cnt+len(i))))
+                r2p.append(list(range(cnt, cnt + len(i))))
                 cnt += len(i)
-                inv_p_size.append([1/len(i) for i in i])
+                inv_p_size.append([1 / len(i) for i in i])
         self.lane_lengths = np.maximum(1, np.array([l.length for l in M.lanes]))[l_ids]
         self.l_ids = l_ids
         self.r_ids = r_ids
         self.l2r = pad([[l_map[i] for i in i] for i in nrl for i in i for i in i], -1)
         self.r2p = pad(r2p, -1)
         self.inv_p_size = pad(inv_p_size, 0)
-        self.mask_p_size = pad([[0]*len(i) for i in inv_p_size], np.nan)
+        self.mask_p_size = pad([[0] * len(i) for i in inv_p_size], np.nan)
         assert all(self.road_lanes)
         self.obs_size_1 = (len(l_ids), 4)
         self.road_plan_ids = np.zeros(len(r_ids))
         self.obs_size_2 = (len(r_ids),)
         self.num_envs = len(r_ids)
 
-        print(f'{len(r_ids)} dynamic lanes in total')
+        print(f"{len(r_ids)} dynamic lanes in total")
         self._cid = self.eng.make_checkpoint()
         self.step_size = step_size
         self.step_count = step_count
         self._step = 0
         self.info = {
-            'ATT-d': 1e999,
-            'ATT-f': 1e999,
-            'Throughput': 0,
-            'reward': 0,
+            "ATT-d": 1e999,
+            "ATT-f": 1e999,
+            "Throughput": 0,
+            "reward": 0,
         }
 
     def _clip_veh_cnt(self, cnt):
-        return np.minimum(self.max_veh_cnt, cnt)/self.max_veh_cnt*NN_INPUT_SCALER
+        return np.minimum(self.max_veh_cnt, cnt) / self.max_veh_cnt * NN_INPUT_SCALER
 
     def reset(self):
         self.eng.restore_checkpoint(self._cid)
         self.road_plan_ids[:] = 0
 
     def observe(self):
-        # TODO:写到这里
-        c1 = self.eng.get_lane_vehicle_counts()[self.l_ids]
-        c2 = self.eng.get_lane_waiting_at_end_vehicle_counts(distance_to_end=150)[self.l_ids]
-        obs_1 = np.stack([
-            self._clip_veh_cnt(c1),
-            self._clip_veh_cnt(c2),
-            np.clip(c1/self.lane_lengths*3, 0, 1)*NN_INPUT_SCALER,
-            np.clip(c2/self.lane_lengths*3, 0, 1)*NN_INPUT_SCALER,
-        ]).T
+        fetched_persons = self.eng.fetch_persons()
+        _lane_vehicle_dict = {
+            lid: pid
+            for pid, lid in zip(fetched_persons["ids"], fetched_persons["lane_id"])
+        }
+        c1 = np.array([_lane_vehicle_dict[lid] for lid in self.all_lane_ids])[
+            self.l_ids
+        ]
+        c2_dict = self.eng.get_lane_waiting_at_end_vehicle_counts(distance_to_end=150)
+        c2 = np.array([c2_dict[lid] for lid in self.all_lane_ids])[self.l_ids]
+        obs_1 = np.stack(
+            [
+                self._clip_veh_cnt(c1),
+                self._clip_veh_cnt(c2),
+                np.clip(c1 / self.lane_lengths * 3, 0, 1) * NN_INPUT_SCALER,
+                np.clip(c2 / self.lane_lengths * 3, 0, 1) * NN_INPUT_SCALER,
+            ]
+        ).T
         obs_2 = self.road_plan_ids.copy()
         return obs_1, obs_2
 
@@ -168,19 +226,21 @@ class Env:
         s = self.observe()
         cnt = self._clip_veh_cnt(self.eng.get_lane_waiting_vehicle_counts())
         r = np.array([-np.mean(cnt[i]) for i in self.road_lanes])
-        self.info['reward'] = np.mean(r)
+        self.info["reward"] = np.mean(r)
         self._step += 1
         done = False
         if self._step >= self.step_count:
-            self.info['ATT-d'] = self.eng.get_departed_person_average_traveling_time()
-            self.info['ATT-f'] = self.eng.get_finished_person_average_traveling_time()
-            self.info['Throughput'] = self.eng.get_finished_person_count()
+            self.info["ATT-d"] = self.eng.get_departed_person_average_traveling_time()
+            self.info["ATT-f"] = self.eng.get_finished_person_average_traveling_time()
+            self.info["Throughput"] = self.eng.get_finished_person_count()
             self._step = 0
             self.reset()
             done = True
             s = self.observe()
-            with open(f'{self.log_dir}/info.log', 'a') as f:
-                f.write(f"{self.info['ATT-d']:.3f} {self.info['Throughput']} {time.time():.3f}\n")
+            with open(f"{self.log_dir}/info.log", "a") as f:
+                f.write(
+                    f"{self.info['ATT-d']:.3f} {self.info['Throughput']} {time.time():.3f}\n"
+                )
         return s, r, done, self.info
 
 
@@ -188,16 +248,22 @@ def make_mlp(*shape, dropout=0.1, act=nn.Tanh, sigma=None, compile=True):
     ls = [nn.Linear(i, j) for i, j in zip(shape, shape[1:])]
     if sigma is not None:
         for l in ls:
-            nn.init.orthogonal_(l.weight, 2**0.5)
+            nn.init.orthogonal_(l.weight, 2**0.5)  # type:ignore
             nn.init.constant_(l.bias, 0)
         nn.init.orthogonal_(ls[-1].weight, sigma)
     mlp = nn.Sequential(
-        *sum(([
-            l,
-            act(),
-            nn.Dropout(dropout),
-        ] for l in ls[:-1]), []),
-        ls[-1]
+        *sum(
+            (
+                [
+                    l,
+                    act(),
+                    nn.Dropout(dropout),
+                ]
+                for l in ls[:-1]
+            ),
+            [],
+        ),
+        ls[-1],
     )
     if compile:
         return torch.compile(mlp, fullgraph=True)
@@ -207,34 +273,52 @@ def make_mlp(*shape, dropout=0.1, act=nn.Tanh, sigma=None, compile=True):
 def pad_tensor(x, value=0, dim=-1):
     shape = list(x.shape)
     shape[dim] = 1
-    return torch.cat([x, value+torch.zeros(*shape, dtype=x.dtype, device=x.device)], dim)
+    return torch.cat(
+        [x, value + torch.zeros(*shape, dtype=x.dtype, device=x.device)], dim
+    )
 
 
 class Model(nn.Module):
     def __init__(self, env: Env, dim_mlp):
         super().__init__()
         self.critic = make_mlp(env.obs_size_1[-1], *dim_mlp, 1, sigma=1)
-        self.actor = make_mlp(env.obs_size_1[-1]*2,  *dim_mlp, 1, sigma=0.01)
-        self.register_buffer('l2rc', torch.LongTensor(env.l2rc), False)
-        self.register_buffer('l2r', torch.LongTensor(env.l2r), False)
-        self.register_buffer('r2p', torch.LongTensor(env.r2p), False)
-        self.register_buffer('inv_p_size',  torch.FloatTensor(env.inv_p_size).reshape(1, len(env.inv_p_size)//2, 2, -1, 1), False)
-        self.register_buffer('mask_p_size', torch.FloatTensor(env.mask_p_size).reshape(1, len(env.inv_p_size)//2, 2, -1, 1), False)
-        self.register_buffer('p_id', torch.LongTensor(np.arange(len(env.r_ids))*2).unsqueeze(0), False)
+        self.actor = make_mlp(env.obs_size_1[-1] * 2, *dim_mlp, 1, sigma=0.01)
+        self.register_buffer("l2rc", torch.LongTensor(env.l2rc), False)
+        self.register_buffer("l2r", torch.LongTensor(env.l2r), False)
+        self.register_buffer("r2p", torch.LongTensor(env.r2p), False)
+        self.register_buffer(
+            "inv_p_size",
+            torch.FloatTensor(env.inv_p_size).reshape(
+                1, len(env.inv_p_size) // 2, 2, -1, 1
+            ),
+            False,
+        )
+        self.register_buffer(
+            "mask_p_size",
+            torch.FloatTensor(env.mask_p_size).reshape(
+                1, len(env.inv_p_size) // 2, 2, -1, 1
+            ),
+            False,
+        )
+        self.register_buffer(
+            "p_id", torch.LongTensor(np.arange(len(env.r_ids)) * 2).unsqueeze(0), False
+        )
 
     def get_value(self, x):
         l_value = pad_tensor(self.critic(x).squeeze(-1))
         r_value = l_value[:, self.l2rc].mean(2)
         return r_value
 
-    def get_action_and_value(self, x, p_id, action=None, sample=True, action_only=False):
+    def get_action_and_value(
+        self, x, p_id, action=None, sample=True, action_only=False
+    ):
         l_value = pad_tensor(x, dim=-2)
         r_value = pad_tensor(l_value[:, self.l2r].sum(-2), dim=-2)
         p = r_value[:, self.r2p]
-        i = self.p_id+p_id
+        i = self.p_id + p_id
         p = p[torch.arange(len(i), dtype=torch.long).view(-1, 1), i].unsqueeze(2)
-        p = p*self.inv_p_size
-        p = torch.cat([torch.nanmean(p+self.mask_p_size, -2), p.max(-2).values], -1)
+        p = p * self.inv_p_size
+        p = torch.cat([torch.nanmean(p + self.mask_p_size, -2), p.max(-2).values], -1)
         pp_value = self.actor(p).squeeze(-1)
         probs = Categorical(logits=pp_value)
         if action is None:
@@ -251,7 +335,7 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 
-class Dummy():
+class Dummy:
     def add_text(*_):
         pass
 
@@ -269,78 +353,92 @@ def make_object(d: dict):
     class Obj:
         def __init__(self, d):
             self.__dict__.update(d)
+
     return Obj(d)
 
 
 def main():
     args = parse_args()
     if args.exp is None:
-        path = time.strftime('log/ppo/%Y%m%d-%H%M%S')
+        path = time.strftime("log/ppo/%Y%m%d-%H%M%S")
     else:
-        path = time.strftime(f'log/ppo/{args.exp}/%Y%m%d-%H%M%S')
+        path = time.strftime(f"log/ppo/{args.exp}/%Y%m%d-%H%M%S")
     if args.suffix is not None:
-        path += '_'+args.suffix
-    print('tensorboard --port 8888 --logdir '+os.path.abspath(path))
+        path += "_" + args.suffix
+    print("tensorboard --port 8888 --logdir " + os.path.abspath(path))
     if args.load:
-        pts = sorted([int(i.rsplit('/', 1)[1][:-3]), i] for i in glob(f'{args.load}/ckpts/*.pt'))
+        pts = sorted(
+            [int(i.rsplit("/", 1)[1][:-3]), i] for i in glob(f"{args.load}/ckpts/*.pt")
+        )
         if args.load_step == -1:
             args.load_step = pts[-1][0]
-        pt = min(pts, key=lambda x: abs(x[0]-args.load_step))[1]
-        print(f'Load checkpoint from {pt}')
-        cfg = json.load(open(f'{args.load}/args.json'))
-        assert cfg['mlp'] == args.mlp
+        pt = min(pts, key=lambda x: abs(x[0] - args.load_step))[1]
+        print(f"Load checkpoint from {pt}")
+        cfg = json.load(open(f"{args.load}/args.json"))
+        assert cfg["mlp"] == args.mlp
     else:
         pt = None
     args.loaded_checkpoint = pt
     if not args.debug:
-        os.makedirs(path+'/code')
-        os.makedirs(path+'/ckpts')
-        shutil.copy(__file__, path+'/code/'+os.path.split(__file__)[1])
+        os.makedirs(path + "/code")
+        os.makedirs(path + "/ckpts")
+        shutil.copy(__file__, path + "/code/" + os.path.split(__file__)[1])
         if pt is not None:
-            shutil.copy(pt, f'{path}/load.pt')
-        with open(f'{path}/cmd.sh', 'w') as f:
-            f.write('python3 ')
-            f.write(' '.join(sys.argv))
-            f.write('\ntensorboard --port 8888 --logdir '+os.path.abspath(path))
-        with open(f'{path}/args.json', 'w') as f:
+            shutil.copy(pt, f"{path}/load.pt")  # type:ignore
+        with open(f"{path}/cmd.sh", "w") as f:
+            f.write("python3 ")
+            f.write(" ".join(sys.argv))
+            f.write("\ntensorboard --port 8888 --logdir " + os.path.abspath(path))
+        with open(f"{path}/args.json", "w") as f:
             json.dump(vars(args), f)
 
     writer = Dummy() if args.debug else SummaryWriter(path)
     writer.add_text(
-        "hyperparameters",
-        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        "hyperparameters",  # type:ignore
+        "|param|value|\n|-|-|\n%s"
+        % (
+            "\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])
+        ),  # type:ignore
     )
 
     set_seed(args.seed)
-    torch.set_float32_matmul_precision('medium')
-    device = torch.device('cuda')
+    torch.set_float32_matmul_precision("medium")
+    device = torch.device("cuda")
 
     env = Env(
         data_path=args.data,
         start_step=args.start,
         step_size=args.interval,
-        step_count=args.steps//args.interval,
+        step_count=args.steps // args.interval,
         log_dir=path,
     )
-    dim_mlp = [int(i) for i in args.mlp.split(',')]
+    dim_mlp = [int(i) for i in args.mlp.split(",")]
     agent = Model(env, dim_mlp).to(device)
     if pt is not None:
-        agent.load_state_dict(torch.load(pt, map_location=device))
+        agent.load_state_dict(torch.load(pt, map_location=device))  # type:ignore
     if args.eval:
         agent.eval()
         with torch.no_grad():
             next_obs = torch.Tensor(env.observe()).to(device)
             for _ in tqdm(range(env.step_count), ncols=90):
-                action = agent.get_action_and_value(next_obs.unsqueeze(0), sample=args.sample, action_only=True) # type:ignore
+                action = agent.get_action_and_value(
+                    next_obs.unsqueeze(0), sample=args.sample, action_only=True
+                )  # type:ignore
                 next_obs, reward, done, info = env.step(action.view(-1).cpu().numpy())
                 next_obs = torch.Tensor(next_obs).to(device)
-            print(f'{info["Throughput"]} {info["ATT-d"]:.1f} {info["ATT-f"]:.1f}')
+            print(
+                f'{info["Throughput"]} {info["ATT-d"]:.1f} {info["ATT-f"]:.1f}'  # type:ignore
+            ) 
         return
     optimizer = optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)
     # 每个路口视为1个env，但obs和done是共享的
     obs_1 = torch.zeros((args.num_steps, *env.obs_size_1), device=device)
-    obs_2 = torch.zeros((args.num_steps, *env.obs_size_2), dtype=torch.long, device=device)
-    actions = torch.zeros((args.num_steps, env.num_envs), dtype=torch.long, device=device)
+    obs_2 = torch.zeros(
+        (args.num_steps, *env.obs_size_2), dtype=torch.long, device=device
+    )
+    actions = torch.zeros(
+        (args.num_steps, env.num_envs), dtype=torch.long, device=device
+    )
     log_probs = torch.zeros((args.num_steps, env.num_envs), device=device)
     rewards = torch.zeros((args.num_steps, env.num_envs), device=device)
     dones = torch.zeros((args.num_steps, env.num_envs), device=device)
@@ -348,7 +446,9 @@ def main():
 
     global_step = 0
     next_obs_1, next_obs_2 = env.observe()
-    next_obs_1, next_obs_2 = torch.Tensor(next_obs_1).to(device), torch.LongTensor(next_obs_2).to(device)
+    next_obs_1, next_obs_2 = torch.Tensor(next_obs_1).to(device), torch.LongTensor(
+        next_obs_2
+    ).to(device)
     next_done = torch.zeros(1, device=device)
     # if args.save_interval:
     #     next_save_step = args.save_interval
@@ -362,40 +462,63 @@ def main():
                 obs_2[step] = next_obs_2
                 dones[step] = next_done
                 with torch.no_grad():
-                    action, log_prob, _, value = agent.get_action_and_value(next_obs_1.unsqueeze(0), next_obs_2.unsqueeze(0))
+                    action, log_prob, _, value = agent.get_action_and_value(
+                        next_obs_1.unsqueeze(0), next_obs_2.unsqueeze(0)
+                    )
                     values[step] = value
                 actions[step] = action
                 log_probs[step] = log_prob
 
-                (next_obs_1, next_obs_2), reward, done, info = env.step(action.view(-1).cpu().numpy())
+                (next_obs_1, next_obs_2), reward, done, info = env.step(
+                    action.view(-1).cpu().numpy()
+                )
                 rewards[step] = torch.tensor(reward).to(device)
-                next_obs_1, next_obs_2, next_done = torch.Tensor(next_obs_1).to(device), torch.LongTensor(next_obs_2).to(device), torch.Tensor([done]).to(device)
+                next_obs_1, next_obs_2, next_done = (
+                    torch.Tensor(next_obs_1).to(device),
+                    torch.LongTensor(next_obs_2).to(device),
+                    torch.Tensor([done]).to(device),
+                )
 
                 global_step += 1
                 bar.update(1)
                 if done:
-                    writer.add_scalar('metric/ATT-d', info['ATT-d'], global_step)# type:ignore
-                    writer.add_scalar('metric/ATT-f', info['ATT-f'], global_step)# type:ignore
-                    writer.add_scalar('metric/Throughput', info['Throughput'], global_step)# type:ignore
-                writer.add_scalar('metric/Reward', info['reward'], global_step)# type:ignore
-            writer.add_scalar("charts/Sample Time", time.time()-_t, global_step)# type:ignore
-
-            if os.path.exists(path+'/lr.txt'):
+                    writer.add_scalar(
+                        "metric/ATT-d", info["ATT-d"], global_step  # type:ignore
+                    )
+                    writer.add_scalar(
+                        "metric/ATT-f", info["ATT-f"], global_step  # type:ignore
+                    )
+                    writer.add_scalar(
+                        "metric/Throughput", # type:ignore
+                        info["Throughput"],
+                        global_step,  # type:ignore
+                    )
+                writer.add_scalar(
+                    "metric/Reward", info["reward"], global_step  # type:ignore
+                )
+            writer.add_scalar(
+                "charts/Sample Time", time.time() - _t, global_step  # type:ignore
+            )
+            if os.path.exists(path + "/lr.txt"):
                 try:
-                    with open(path+'/lr.txt') as f:
+                    with open(path + "/lr.txt") as f:
                         lr = float(f.read())
                     if lr != optimizer.param_groups[0]["lr"]:
-                        print(f'Change lr to {lr}')
+                        print(f"Change lr to {lr}")
                         optimizer.param_groups[0]["lr"] = lr
-                        writer.add_scalar("charts/lr", lr, global_step)# type:ignore
+                        writer.add_scalar("charts/lr", lr, global_step)  # type:ignore
                 except:
                     pass
             else:
                 if args.lr_anneal > 0:
-                    optimizer.param_groups[0]["lr"] = lr = args.lr*max(0.1, 1-global_step/args.lr_anneal)
+                    optimizer.param_groups[0]["lr"] = lr = args.lr * max(
+                        0.1, 1 - global_step / args.lr_anneal
+                    )
                     writer.add_scalar("charts/lr", lr, global_step)
                 elif args.lr_scale > 0:
-                    optimizer.param_groups[0]["lr"] = lr = args.lr*min(1, abs(info['reward'])/args.lr_scale)
+                    optimizer.param_groups[0]["lr"] = lr = args.lr * min(
+                        1, abs(info["reward"]) / args.lr_scale  # type:ignore
+                    )
                     writer.add_scalar("charts/lr", lr, global_step)
 
             _t = time.time()
@@ -412,8 +535,18 @@ def main():
                         else:
                             next_nonterminal = 1.0 - dones[t + 1]
                             next_values = values[t + 1]
-                        delta = rewards[t] + args.gamma * next_values * next_nonterminal - values[t]
-                        advantages[t] = last_gae_lam = delta + args.gamma * args.gae_lambda * next_nonterminal * last_gae_lam
+                        delta = (
+                            rewards[t]
+                            + args.gamma * next_values * next_nonterminal
+                            - values[t]
+                        )
+                        advantages[t] = last_gae_lam = (
+                            delta
+                            + args.gamma
+                            * args.gae_lambda
+                            * next_nonterminal
+                            * last_gae_lam
+                        )
                     returns = advantages + values
                 else:
                     returns = torch.zeros_like(rewards).to(device)
@@ -424,7 +557,9 @@ def main():
                         else:
                             next_nonterminal = 1.0 - dones[t + 1]
                             next_return = returns[t + 1]
-                        returns[t] = rewards[t] + args.gamma * next_nonterminal * next_return
+                        returns[t] = (
+                            rewards[t] + args.gamma * next_nonterminal * next_return
+                        )
                     advantages = returns - values
 
             # flatten the batch
@@ -443,10 +578,12 @@ def main():
                 np.random.shuffle(b_inds)
                 b_inds = b_inds.reshape(-1, args.minibatch_size)
                 for mb_inds in b_inds:
-                    _, new_log_prob, entropy, new_value = agent.get_action_and_value(b_obs_1[mb_inds], b_obs_2[mb_inds], b_actions[mb_inds])
+                    _, new_log_prob, entropy, new_value = agent.get_action_and_value(
+                        b_obs_1[mb_inds], b_obs_2[mb_inds], b_actions[mb_inds]
+                    )
                     log_ratio = new_log_prob - b_log_probs[mb_inds]
                     if np.any(log_ratio.detach().cpu().numpy() >= 80):
-                        print('Warning: log_ratio too big', log_ratio)
+                        print("Warning: log_ratio too big", log_ratio)
                         log_ratio = torch.clamp(log_ratio, None, 80)
                     ratio = log_ratio.exp()
 
@@ -454,58 +591,101 @@ def main():
                         # calculate approx_kl http://joschu.net/blog/kl-approx.html
                         old_approx_kl = (-log_ratio).mean()
                         approx_kl = ((ratio - 1) - log_ratio).mean()
-                        clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+                        clipfracs += [
+                            ((ratio - 1.0).abs() > args.clip_coef).float().mean().item()
+                        ]
 
                     mb_advantages = b_advantages[mb_inds]
                     if args.norm_adv:
-                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                            mb_advantages.std() + 1e-8
+                        )
 
                     # Policy loss
                     pg_loss1 = -mb_advantages * ratio
-                    pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
+                    pg_loss2 = -mb_advantages * torch.clamp(
+                        ratio, 1 - args.clip_coef, 1 + args.clip_coef
+                    )
                     pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                     # Value loss
                     v_loss = 0.5 * ((new_value - b_returns[mb_inds]) ** 2).mean()
 
                     entropy_loss = entropy.mean()
-                    loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                    loss = (
+                        pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                    )
 
                     optimizer.zero_grad()
                     loss.backward()
-                    nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
+                    nn.utils.clip_grad_norm_(  # type:ignore
+                        agent.parameters(), args.max_grad_norm
+                    )
                     optimizer.step()
 
             y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
             var_y = np.var(y_true)
-            explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+            explained_var = (
+                np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+            )
 
-            writer.add_scalar("charts/Optimize Time", time.time()-_t, global_step)
+            writer.add_scalar(
+                "charts/Optimize Time", time.time() - _t, global_step  # type:ignore
+            )
 
             # TRY NOT TO MODIFY: record rewards for plotting purposes
-            writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
-            writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
-            writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
-            writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
-            writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
-            writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
-            writer.add_scalar("losses/explained_variance", explained_var, global_step)
-            ratio = np.array([i.item() for i in [pg_loss, entropy_loss * args.ent_coef, v_loss * args.vf_coef]])
+            writer.add_scalar(
+                "losses/value_loss", v_loss.item(), global_step  # type:ignore
+            )
+            writer.add_scalar(
+                "losses/policy_loss", pg_loss.item(), global_step  # type:ignore
+            )
+            writer.add_scalar(
+                "losses/entropy", entropy_loss.item(), global_step  # type:ignore
+            )
+            writer.add_scalar(
+                "losses/old_approx_kl", old_approx_kl.item(), global_step  # type:ignore
+            )
+            writer.add_scalar(
+                "losses/approx_kl", approx_kl.item(), global_step  # type:ignore
+            )
+            writer.add_scalar(
+                "losses/clipfrac", np.mean(clipfracs), global_step  # type:ignore
+            )
+            writer.add_scalar(
+                "losses/explained_variance", explained_var, global_step  # type:ignore
+            )
+            ratio = np.array(
+                [
+                    i.item()
+                    for i in [
+                        pg_loss,  # type:ignore
+                        entropy_loss * args.ent_coef,  # type:ignore
+                        v_loss * args.vf_coef,  # type:ignore
+                    ]
+                ]
+            )
             ratio = ratio / ratio.sum()
-            writer.add_scalars("losses/ratio", {
-                'policy': ratio[0], # type:ignore
-                'entropy': ratio[1],# type:ignore
-                'value': ratio[2],# type:ignore
-            }, global_step)# type:ignore
-            msg = f'{loss.item():.3f} ATT: {info["ATT-d"]:.1f} TP: {info["Throughput"]}'
+            writer.add_scalars(
+                "losses/ratio",  # type:ignore
+                {
+                    "policy": ratio[0],  # type:ignore
+                    "entropy": ratio[1],  # type:ignore
+                    "value": ratio[2],  # type:ignore
+                },
+                global_step,  # type:ignore
+            )
+            msg = (
+                f'{loss.item():.3f} ATT: {info["ATT-d"]:.1f} TP: {info["Throughput"]}' # type:ignore
+            )  
             bar.set_description(msg)
             if not args.debug:
-                with open(f'{path}/msg.log', 'w') as f:
+                with open(f"{path}/msg.log", "w") as f:
                     f.write(msg)
             # if global_step >= next_save_step:
             #     torch.save(agent.state_dict(), f'{path}/ckpts/{global_step}.pt')
     writer.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
