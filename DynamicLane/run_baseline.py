@@ -74,7 +74,7 @@ def main():
             r_plan_ids = [random.randint(0, 1) for _ in r_plan_ids]
         elif args.algo == "rule":
             cnt_dict = eng.get_lane_waiting_at_end_vehicle_counts()
-            cnt = np.array([cnt_dict[lid] for lid in all_lane_ids])
+            cnt = np.array([cnt_dict.get(lid,0) for lid in all_lane_ids])
             new_plan = []
             for nr, i in zip(nrl, r_plan_ids):
                 c = [cnt[x].sum() for x in nr[i]]
@@ -91,7 +91,7 @@ def main():
         eng.set_road_lane_plan_batch(r_ids, r_plan_ids)
         eng.next_step(args.interval)
         cnt_dict = eng.get_lane_waiting_vehicle_counts()
-        cnt = np.array([cnt_dict[lid] for lid in all_lane_ids])
+        cnt = np.array([cnt_dict.get(lid,0) for lid in all_lane_ids])
         cnt = np.minimum(200, cnt) / 200 * 5
         reward += np.mean([-np.mean(cnt[i]) for i in road_lanes])
     print(

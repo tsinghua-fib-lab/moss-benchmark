@@ -220,7 +220,7 @@ class Env:
 
     def observe(self):
         cnt_dict = self.eng.get_lane_waiting_vehicle_counts()
-        cnt = np.array([cnt_dict[lid] for lid in self.all_lane_ids])
+        cnt = np.array([cnt_dict.get(lid,0) for lid in self.all_lane_ids])
         in_cnt_states, out_cnt_states = cnt[self.phase_lanes_inflow], cnt[self.phase_lanes_outflow]
         in_cnt_states[self.zero_lanes_inflow == 1] = 0
         out_cnt_states[self.zero_lanes_outflow == 1] = 0

@@ -272,15 +272,13 @@ class Env:
     def get_obs(self):
         # 观测值为道路的车辆数
         c_dict = self.eng.get_road_vehicle_counts()
-        import pickle
-        pickle.dump(c_dict,open("c_dict.pkl","wb"))
-        c = np.array([c_dict[i] for i in self.all_road_ids])
+        c = np.array([c_dict.get(i,0) for i in self.all_road_ids])
         return c / 100
 
     def observe(self):
         # 用于我们PPO训练的观测值
         c_dict = self.eng.get_road_vehicle_counts()
-        c = np.array([c_dict[i] for i in self.all_road_ids])
+        c = np.array([c_dict.get(i,0) for i in self.all_road_ids])
         return np.stack(
             [
                 np.minimum(c / 200, 1) * NN_INPUT_SCALER,

@@ -28,7 +28,7 @@ class Env:
 
     def get_vehicle_counts(self):
         cnt_dict = self.eng.get_road_vehicle_counts()
-        cnt = np.array([cnt_dict[rid] for rid in cnt_dict])
+        cnt = np.array([cnt_dict.get(rid,0) for rid in cnt_dict])
         return cnt[self.rs]
 
     def set_state(self, states):

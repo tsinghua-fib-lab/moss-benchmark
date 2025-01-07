@@ -87,7 +87,7 @@ class MossApiEngine:
         cnt_dict = self.moss_engine.get_lane_waiting_at_end_vehicle_counts(
                 speed_threshold, distance_to_end
             )
-        cnt = [cnt_dict[l.id] for l in self.map_pb.lanes]
+        cnt = [cnt_dict.get(l.id,0) for l in self.map_pb.lanes]
         return np.array(
             cnt,
             dtype=int,
