@@ -272,6 +272,8 @@ class Env:
     def get_obs(self):
         # 观测值为道路的车辆数
         c_dict = self.eng.get_road_vehicle_counts()
+        import pickle
+        pickle.dump(c_dict,open("c_dict.pkl","wb"))
         c = np.array([c_dict[i] for i in self.all_road_ids])
         return c / 100
 
