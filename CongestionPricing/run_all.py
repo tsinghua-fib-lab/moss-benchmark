@@ -80,6 +80,8 @@ class Env:
         )
         self.eng.set_tl_policy_batch([i for i in range(self.eng.junction_count)], TlPolicy.FIXED_TIME)
         self.eng.set_tl_duration_batch([i for i in range(self.eng.junction_count)], 30)
+        # TODO:全部车辆设为禁行 后续放行
+        self.eng.set_vehicle_enable_batch(range(self.eng.person_count), False)
         self.road_prices = np.zeros(len(self.map.roads))
         l = np.array([map_lanes_dict[r.lane_ids[0]].length for r in self.map.roads])
         self.road_fuel_cost = l*fuel_cost_weight
@@ -125,8 +127,8 @@ class Env:
                 for (_, a, b), (_, r) in zip(ic, irs):
                     _LOG.append([self.time, a, b, len(r)])
                 choice = min(ic, key=lambda x: x[1]+x[2])[0]
-            # TODO:这个怎么搞
-            # self.eng.set_vehicle_enable(choice, True)
+            # TODO:放行指定车辆
+            self.eng.set_vehicle_enable(choice, True)
         # 处理road，记录平均通行时间
         fetched_persons = self.eng.fetch_persons()
         _vehicle_lane_dict = {pid:lid for pid,lid in zip(fetched_persons["ids"],fetched_persons["lane_id"])}
