@@ -272,14 +272,14 @@ class Env:
         in_cnt_B[self.missing_phase == 1] = -1
         return in_cnt_A, in_cnt_B
 
-    def inside_eval(self):
-        state, time = self.eng.get_vehicle_status(), self.eng.get_vehicle_time()
-        mask = np.zeros(len(state), bool)
-        mask[self.ids] = True
+    # def inside_eval(self):
+    #     state, time = self.eng.get_vehicle_status(), self.eng.get_vehicle_time()
+    #     mask = np.zeros(len(state), bool)
+    #     mask[self.ids] = True
 
-        att = time[(state == 2) & mask].mean()
-        tp = ((state == 2) & mask).sum()
-        return att, tp
+    #     att = time[(state == 2) & mask].mean()
+    #     tp = ((state == 2) & mask).sum()
+    #     return att, tp
 
     def step(self, action):
         self.eng.set_tl_phase_batch(self.jids, action)

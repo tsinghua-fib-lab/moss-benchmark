@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from engine import get_engine
 from moss.map import LaneTurn, LaneType, LightState
 from torch import nn, optim
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter # type:ignore
 from tqdm import tqdm
 
 
@@ -315,14 +315,14 @@ class Env:
 
         return np.concatenate([pressure_A, running_A, pressure_B, running_B, self.junction_phase_sizes],  axis=1)
 
-    def inside_eval(self):
-        state, time = self.eng.get_vehicle_status(), self.eng.get_vehicle_time()
-        mask = np.zeros(len(state), bool)
-        mask[self.ids] = True
+    # def inside_eval(self):
+    #     state, time = self.eng.get_vehicle_status(), self.eng.get_vehicle_time()
+    #     mask = np.zeros(len(state), bool)
+    #     mask[self.ids] = True
 
-        att = time[(state == 2) & mask].mean()
-        tp = ((state == 2) & mask).sum()
-        return att, tp
+    #     att = time[(state == 2) & mask].mean()
+    #     tp = ((state == 2) & mask).sum()
+    #     return att, tp
 
     def step(self, action):
         self.eng.set_tl_phase_batch(self.jids, action)

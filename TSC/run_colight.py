@@ -12,7 +12,7 @@ import torch
 import torch.nn.functional as F
 from run_mplight import Env as EnvBase
 from torch import nn, optim
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter# type:ignore
 from tqdm import tqdm
 from utils.invariant import Colight
 
@@ -27,7 +27,8 @@ def decompose_action(x, sizes):
 
 class Env(EnvBase):
     def observe(self):
-        cnt = self.eng.get_lane_waiting_vehicle_counts()
+        cnt_dict = self.eng.get_lane_waiting_vehicle_counts()
+        # TODO:修改这里
         in_cnt_states, out_cnt_states = cnt[self.phase_lanes_inflow], cnt[self.phase_lanes_outflow]
         in_cnt_states[self.zero_lanes_inflow == 1] = 0
         out_cnt_states[self.zero_lanes_outflow == 1] = 0
@@ -246,9 +247,9 @@ def main():
                         loss = loss+F.mse_loss(y, y_target)
                     loss = loss/len(Q)
                     opt.zero_grad()
-                    loss.backward()
+                    loss.backward()# type:ignore
                     opt.step()
-                writer.add_scalar('chart/loss', loss.item(), step)
+                writer.add_scalar('chart/loss', loss.item(), step)# type:ignore
                 bar.set_description(f'ATT: {info["ATT"]:.3f} TP: {info["Throughput"]} ')
                 if step % args.target_freq == 0:
                     for a, b in zip(Q, Q_target):

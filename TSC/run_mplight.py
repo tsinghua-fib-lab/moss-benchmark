@@ -11,9 +11,10 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from engine import get_engine
-from moss.map import LaneTurn, LaneType, LightState
+from mosstool.type import LaneTurn, LaneType,Map
+import pycityproto.city.map.v2.light_pb2 as lightv2
 from torch import nn, optim
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter # type:ignore
 from tqdm import tqdm
 
 
@@ -34,31 +35,34 @@ class Env:
             start_step=start_step,
         )
         self.alpha = alpha
-        M = self.eng.get_map()
+        M:Map = self.eng.get_map(dict_return=False) # type:ignore
+        
+        self.all_lane_ids: list[int] = [i for i in range(self.eng.lane_count)]
 
         def lanes_collect(js):
             in_lanes_list = []
             out_lanes_list = []
             phase_lanes_list = []
             phase_label_list = []
-
+            junction_map = {i.id : i for i in M.junctions}
+            lane_map = {i.id : i for i in M.lanes}
             for jid in js:
-                junction = M.junction_map[jid]
+                junction = junction_map[jid]
                 phases_lane = []
                 in_lane, out_lane = [], []
                 labels = []
-                if junction.tl:
-                    tl = junction.tl
+                if junction.fixed_program:
+                    tl:lightv2.TrafficLight = junction.fixed_program
                     for phase in tl.phases:
-                        lanes = [i for i, j in zip(junction.lanes, phase.states) if j == LightState.GREEN and i.type == LaneType.DRIVING and i.turn != LaneTurn.RIGHT and i.turn != LaneTurn.AROUND]
+                        lanes = [lane_map[lid] for lid, j in zip(junction.lane_ids, phase.states) if j == lightv2.LightState.LIGHT_STATE_GREEN and lane_map[lid].type == LaneType.LANE_TYPE_DRIVING and lane_map[lid].turn!= LaneTurn.LANE_TURN_RIGHT and lane_map[lid].turn!= LaneTurn.LANE_TURN_AROUND]
                         in_lanes = [m.predecessors[0].id for m in lanes]
                         out_lanes = [m.successors[0].id for m in lanes]
                         phases_lane.append([list(set(in_lanes)), list(set(out_lanes))])
                         in_lane += in_lanes
                         out_lane += out_lanes
                         labels.append([
-                            any(i.turn == LaneTurn.STRAIGHT for i in lanes),
-                            any(i.turn == LaneTurn.LEFT for i in lanes)
+                            any(i.turn == LaneTurn.LANE_TURN_STRAIGHT for i in lanes),
+                            any(i.turn == LaneTurn.LANE_TURN_LEFT for i in lanes)
                         ])
                 in_lanes_list.append(list(set(in_lane)))
                 out_lanes_list.append(list(set(out_lane)))
@@ -215,7 +219,8 @@ class Env:
         self.eng.restore_checkpoint(self._cid)
 
     def observe(self):
-        cnt = self.eng.get_lane_waiting_vehicle_counts()
+        cnt_dict = self.eng.get_lane_waiting_vehicle_counts()
+        cnt = np.array([cnt_dict[lid] for lid in self.all_lane_ids])
         in_cnt_states, out_cnt_states = cnt[self.phase_lanes_inflow], cnt[self.phase_lanes_outflow]
         in_cnt_states[self.zero_lanes_inflow == 1] = 0
         out_cnt_states[self.zero_lanes_outflow == 1] = 0
@@ -237,14 +242,15 @@ class Env:
         observe_states = np.concatenate([m, n, self.junction_phase_sizes], axis=1)
         return observe_states
 
-    def inside_eval(self):
-        state, time = self.eng.get_vehicle_status(), self.eng.get_vehicle_time()
-        mask = np.zeros(len(state), bool)
-        mask[self.ids] = True
+    # # unused
+    # def inside_eval(self):
+    #     state, time = self.eng.get_vehicle_status(), self.eng.get_vehicle_time()
+    #     mask = np.zeros(len(state), bool)
+    #     mask[self.ids] = True  # type:ignore
 
-        att = time[(state == 2) & mask].mean()
-        tp = ((state == 2) & mask).sum()
-        return att, tp
+    #     att = time[(state == 2) & mask].mean()
+    #     tp = ((state == 2) & mask).sum()
+    #     return att, tp
 
     def step(self, action):
         self.eng.set_tl_phase_batch(self.jids, action)
