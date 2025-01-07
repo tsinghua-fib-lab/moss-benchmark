@@ -36,6 +36,7 @@ class Env:
         n_routes: int = 3,
         fuel_cost_weight=0.0024 * 0.2,
         vehicle_policy=VehiclePolicy.SHORTEST,
+        device: int = 0,
     ):
         """
         step_interval:      CP算法行动间隔
@@ -93,6 +94,7 @@ class Env:
             person_file=person_file,
             start_step=start_step,
             verbose_level=Verbosity.NO_OUTPUT,
+            device=device,
         )
         self.eng.set_tl_policy_batch(
             [i for i in range(self.eng.junction_count)], TlPolicy.FIXED_TIME
@@ -360,6 +362,7 @@ def main():
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--steps", type=int, default=7200)
     parser.add_argument("--suffix", type=str)
+    parser.add_argument("--device", type=int, default=0)
     # deltatoll
     parser.add_argument("--dt_R", type=float, default=0.04144857024110564)
     parser.add_argument("--dt_beta", type=float, default=0.03470888810354356)
@@ -398,6 +401,7 @@ def main():
         step_interval=args.interval,
         step_reset=args.reset + int(not args.egcn_train),
         vehicle_policy=policy,
+        device=args.device,
     )
     if args.algo == "deltatoll":
         controller = DeltaController(env, R=args.dt_R, beta=args.dt_beta, tau=0.2)
