@@ -64,7 +64,7 @@ class Env:
         self.all_road_ids: list[int] = [
             i + ROAD_ID_START for i in range(len(map_roads_dict))
         ]
-        self.all_person_ids: list[int] = [p.id for p in persons]
+        all_person_ids: list[int] = [p.id for p in persons]
         self.road_map = {rid: idx for idx, rid in enumerate(self.all_road_ids)}
         self.persons = [
             [
@@ -124,13 +124,14 @@ class Env:
         ]
         self.vehicle_enter_time = np.zeros(self.eng.person_count)
         fetched_persons = self.eng.fetch_persons()
-        _vehicle_lane_dict = {
-            pid: lid
-            for pid, lid in zip(fetched_persons["id"], fetched_persons["lane_id"])
-        }
+        assert len(fetched_persons["id"])==len(all_person_ids),f"invalid person in {person_file}!"
+        _person_id_2_pb_index:dict[int,int] = {person_id:pb_index for pb_index,person_id in enumerate(all_person_ids)}
+        self.pb_index_2_moss_index:dict[int,int] = {_person_id_2_pb_index[person_id]:moss_index for moss_index,person_id in enumerate(fetched_persons["id"])}
+        self.moss_indices:list[int] = [self.pb_index_2_moss_index[i] for i in range(len(all_person_ids))] 
+        # 和pb一致的person排列顺序
         self.vehicle_lane = np.array(
-            [_vehicle_lane_dict[pid] for pid in self.all_person_ids]
-        )
+            fetched_persons["lane_id"]
+        )[self.moss_indices]
         self._reset_id = self.eng.make_checkpoint()
         self.metrics = None
         self.obs_size = (self.eng.road_count, 4)
@@ -166,15 +167,14 @@ class Env:
                 for (_, a, b), (_, r) in zip(ic, irs):
                     _LOG.append([self.time, a, b, len(r)])
                 choice = min(ic, key=lambda x: x[1] + x[2])[0]
+            choice = self.pb_index_2_moss_index[choice]
             # 放行指定车辆
             self.eng.set_person_enable(choice, True)
         # 处理road，记录平均通行时间
         fetched_persons = self.eng.fetch_persons()
-        _vehicle_lane_dict = {
-            pid: lid
-            for pid, lid in zip(fetched_persons["id"], fetched_persons["lane_id"])
-        }
-        vl = np.array([_vehicle_lane_dict[pid] for pid in self.all_person_ids])
+        vl = np.array(
+            fetched_persons["lane_id"]
+        )[self.moss_indices]
         mask = vl != self.vehicle_lane
         if np.any(mask):
             for i, lane, t in zip(
