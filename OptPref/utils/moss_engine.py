@@ -20,7 +20,7 @@ def _populate_lane_counting_dict(has_vehicle_lane_ids:np.ndarray, lane_ids:np.nd
     lane_counting_dict:dict[int,int] = {lid: 0 for lid in lane_ids}
     for lid in has_vehicle_lane_ids:
         lane_counting_dict[lid] += 1
-    return np.array([lane_counting_dict[lid] for lid in lane_ids], dtype=int)
+    return np.array([lane_counting_dict[lid] for lid in lane_ids], dtype=np.int32)
 
 __all__ = ["get_moss_engine"]
 
