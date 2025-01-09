@@ -120,6 +120,7 @@ class MossApiEngine:
     def set_tl_phase_batch(self, junction_indices: list[int], phase_indices: list[int]):
         self.moss_engine.set_tl_phase_batch(junction_indices, phase_indices)
 
+    @timing_decorator
     def next_step(self, n: int = 1):
         self.moss_engine.next_step(n)
 
