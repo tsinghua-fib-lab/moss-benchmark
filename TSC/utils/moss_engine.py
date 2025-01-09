@@ -1,12 +1,25 @@
 import math
 from collections import defaultdict
-from .decorators import timing_decorator
+
 import numpy as np
 import pycityproto.city.map.v2.light_pb2 as lightv2
 import pycityproto.city.map.v2.map_pb2 as mapv2
 from moss import Engine, TlPolicy, Verbosity
 from mosstool.type import LaneTurn, LaneType, Map
 from numpy.typing import NDArray
+from numba import njit
+
+from .decorators import timing_decorator
+@njit
+def _populate_lookup_array(cnt_dict_items, lane_lookup_array):
+    for lid, v in cnt_dict_items:
+        lane_lookup_array[lid] = v
+    return lane_lookup_array
+@njit
+def _populate_lane_counting_dict(has_vehicle_lane_ids, lane_counting_dict,lane_ids):
+    for lid in has_vehicle_lane_ids:
+        lane_counting_dict[lid]+=1
+    return [lane_counting_dict[lid] for lid in lane_ids]
 
 __all__ = ["get_moss_engine"]
 
@@ -90,17 +103,17 @@ class MossApiEngine:
         self,
     ) -> NDArray[np.float32]:
         return np.array([l.length for l in self.map_pb.lanes], dtype=np.float32)
+
     @timing_decorator
     def get_lane_vehicle_counts(
         self,
     ) -> NDArray:
         fetched_persons = self.moss_engine.fetch_persons()
-        if len(fetched_persons["lane_id"]) == 0:
-            return np.zeros(len(self.map_pb.lanes), dtype=int)
-        unique_lane_ids, lane_counts = np.unique(fetched_persons["lane_id"], return_counts=True)
-        lane_counting_dict = dict(zip(unique_lane_ids, lane_counts))
-        lane_counts_array = np.array([lane_counting_dict.get(l.id, 0) for l in self.map_pb.lanes], dtype=int)
+        lane_counting_dict = defaultdict(int)
+        lane_counts_array = _populate_lane_counting_dict(fetched_persons["lane_id"],lane_counting_dict,self.lane_ids)
+        lane_counts_array =  np.array(lane_counts_array, dtype=int)
         return lane_counts_array
+
     @timing_decorator
     def get_lane_waiting_at_end_vehicle_counts(
         self, speed_threshold: float = 0.1, distance_to_end: float = 100
@@ -108,26 +121,17 @@ class MossApiEngine:
         cnt_dict = self.moss_engine.get_lane_waiting_at_end_vehicle_counts(
             speed_threshold, distance_to_end
         )
-        # cnt = [cnt_dict.get(l.id, 0) for l in self.map_pb.lanes]
-        # return np.array(
-        #     cnt,
-        #     dtype=int,
-        # )
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
-        for lid,v in cnt_dict.items():
-                lane_lookup_array[lid] = v
+        lane_lookup_array = _populate_lookup_array(cnt_dict.items(),lane_lookup_array)
         return lane_lookup_array[self.lane_ids]
+
     @timing_decorator
     def get_lane_waiting_vehicle_counts(self, speed_threshold: float = 0.1) -> NDArray:
         cnt_dict = self.moss_engine.get_lane_waiting_vehicle_counts(speed_threshold)
-        # return np.array(
-        #     [cnt_dict.get(l.id,0) for l in self.map_pb.lanes],
-        #     dtype=int,
-        # )
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
-        for lid,v in cnt_dict.items():
-                lane_lookup_array[lid] = v
+        lane_lookup_array = _populate_lookup_array(cnt_dict.items(),lane_lookup_array)
         return lane_lookup_array[self.lane_ids]
+
     @timing_decorator
     def set_tl_phase_batch(self, junction_indices: list[int], phase_indices: list[int]):
         self.moss_engine.set_tl_phase_batch(junction_indices, phase_indices)
@@ -278,16 +282,25 @@ class MossApiEngine:
         )
 
     @property
-    def lane_count(self,)->int:
+    def lane_count(
+        self,
+    ) -> int:
         return self.moss_engine.lane_count
-    
-    
+
     @property
-    def person_count(self,)->int:
+    def person_count(
+        self,
+    ) -> int:
         return self.moss_engine.person_count
+
     @property
-    def road_count(self,)->int:
+    def road_count(
+        self,
+    ) -> int:
         return self.moss_engine.road_count
+
     @property
-    def junction_count(self,)->int:
+    def junction_count(
+        self,
+    ) -> int:
         return self.moss_engine.junction_count
