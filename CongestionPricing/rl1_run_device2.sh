@@ -13,5 +13,5 @@ for city in $PART_2_CITIES; do
         python3 run_all.py --algo $algo --data data/$city --start 25200 --steps 10800 --exp $city --device 2
     done
     # train for 4 hours
-    timeout 4h python3 run_all.py --algo eGCN --data data/$city --start 25200 --steps 10800 --exp $city --device 2
+    timeout 4h python3 run_all.py --algo eGCN --data data/$city --start 25200 --steps 10800 --exp $city --device 2  || true
 done

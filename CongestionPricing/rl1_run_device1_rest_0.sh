@@ -4,7 +4,13 @@ set -e
 
 PART_1_CITIES="us_newyork_s china_beijing_c"
 
-timeout 4h python3 run_all.py --algo eGCN --data data/france_paris_s --start 25200 --steps 10800 --exp france_paris_s --device 1
+python3 ../sleep_until_no_threads.py --command "python3 run_all.py --algo none --data data/france_paris_s"
+
+python3 ../sleep_until_no_threads.py --command "python3 run_all.py --algo random --data data/france_paris_s"
+
+python3 ../sleep_until_no_threads.py --command "python3 run_all.py --algo deltatoll --data data/france_paris_s"
+
+python3 ../sleep_until_no_threads.py --command "python3 run_all.py --algo eGCN --data data/france_paris_s"
 
 # ATTENTION: 临时设置--device
 for city in $PART_1_CITIES; do
@@ -13,5 +19,5 @@ for city in $PART_1_CITIES; do
         python3 run_all.py --algo $algo --data data/$city --start 25200 --steps 10800 --exp $city --device 1
     done
     # train for 4 hours
-    timeout 4h python3 run_all.py --algo eGCN --data data/$city --start 25200 --steps 10800 --exp $city --device 1
+    timeout 4h python3 run_all.py --algo eGCN --data data/$city --start 25200 --steps 10800 --exp $city --device 1  || true
 done
