@@ -40,7 +40,7 @@ class Env:
             self.moss_eng
         )
         self.alpha = alpha
-        M:Map = self.eng.get_map(dict_return=False) # type:ignore
+        M:Map = self.moss_eng.get_map(dict_return=False) # type:ignore
         
         self.all_lane_ids: list[int] = [i for i in range(self.eng.lane_count)]
 
