@@ -15,7 +15,7 @@ from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter  # type:ignore
 from tqdm import tqdm
 
-from .utils.moss_engine import MossApiEngine
+from utils.moss_engine import MossApiEngine
 
 NN_INPUT_SCALER = 5
 

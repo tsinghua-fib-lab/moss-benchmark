@@ -16,7 +16,7 @@ from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter  # type:ignore
 from tqdm import tqdm
 
-from .utils.moss_engine import MossApiEngine
+from utils.moss_engine import MossApiEngine
 
 
 def decompose_action(x, sizes):
