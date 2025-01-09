@@ -175,6 +175,8 @@ class Env:
         _start_time  = time.time()
         fetched_persons = self.eng.fetch_persons()
         _end_time  = time.time()
+        print(f"fetched_persons cost {_end_time-_start_time}")
+        _start_time  = time.time()
         _vehicle_lane_dict = {
             pid: lid
             for pid, lid in zip(fetched_persons["id"], fetched_persons["lane_id"])
@@ -191,7 +193,8 @@ class Env:
                     self.road_travel_time[self.lane2road[lane]].append(self.time - t)
                 self.vehicle_enter_time[i] = self.time
         self.vehicle_lane = vl
-        print(f"fetched_persons cost {_end_time-_start_time}")
+        _end_time  = time.time()
+        print(f"mask cost {_end_time-_start_time}")
 
     def step(self):
         for _ in range(self.step_interval):
