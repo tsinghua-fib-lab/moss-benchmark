@@ -93,10 +93,12 @@ class MossApiEngine:
         self,
     ) -> NDArray:
         fetched_persons = self.moss_engine.fetch_persons()
-        cnt_dict = defaultdict(int)
+        lane_counting_dict = defaultdict(int)
         for lid in fetched_persons["lane_id"]:
-            cnt_dict[lid] += 1
-        return np.array([cnt_dict[l.id] for l in self.map_pb.lanes], dtype=int)
+            lane_counting_dict[lid] += 1
+        return np.array(
+            [lane_counting_dict[l.id] for l in self.map_pb.lanes], dtype=int
+        )
 
     def get_lane_waiting_at_end_vehicle_counts(
         self, speed_threshold: float = 0.1, distance_to_end: float = 100
@@ -113,7 +115,7 @@ class MossApiEngine:
     def get_lane_waiting_vehicle_counts(self, speed_threshold: float = 0.1) -> NDArray:
         cnt_dict = self.moss_engine.get_lane_waiting_vehicle_counts(speed_threshold)
         return np.array(
-            [cnt_dict[l.id] for l in self.map_pb.lanes],
+            [cnt_dict.get(l.id, 0) for l in self.map_pb.lanes],
             dtype=int,
         )
 
@@ -265,16 +267,25 @@ class MossApiEngine:
         )
 
     @property
-    def lane_count(self,)->int:
+    def lane_count(
+        self,
+    ) -> int:
         return self.moss_engine.lane_count
-    
-    
+
     @property
-    def person_count(self,)->int:
+    def person_count(
+        self,
+    ) -> int:
         return self.moss_engine.person_count
+
     @property
-    def road_count(self,)->int:
+    def road_count(
+        self,
+    ) -> int:
         return self.moss_engine.road_count
+
     @property
-    def junction_count(self,)->int:
+    def junction_count(
+        self,
+    ) -> int:
         return self.moss_engine.junction_count
