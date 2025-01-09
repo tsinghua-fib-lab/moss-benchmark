@@ -15,6 +15,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--exp", type=str, help="name of the experiment")
     parser.add_argument("--data", type=str, default="data/us_newyork")
+    parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--steps", type=int, default=7200)
     parser.add_argument("--interval", type=int, default=180)
@@ -35,6 +36,7 @@ def main():
         map_file=f"{args.data}/map.bin",
         person_file=f"{args.data}/agents.bin",
         start_step=args.start,
+        device=args.device,
     )
     M: Map = eng.get_map(dict_return=False)  # type:ignore
     map_lanes_dict: dict[int, Lane] = {i.id: i for i in M.lanes}
