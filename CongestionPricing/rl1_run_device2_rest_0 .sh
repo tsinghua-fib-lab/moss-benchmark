@@ -16,8 +16,8 @@ python3 ../sleep_until_no_threads.py --command "python3 run_all.py --algo eGCN -
 for city in $PART_2_CITIES; do
     for algo in none random deltatoll; do
         # simulate from 7:00 to 10:00, i.e. start at 7*3600=25200 seconds and simulet 3*3600=10800 steps
-        python3 run_all.py --algo $algo --data data/$city --start 25200 --steps 10800 --exp $city --device 1
+        python3 run_all.py --algo $algo --data data/$city --start 25200 --steps 10800 --exp $city --device 2
     done
     # train for 4 hours
-    timeout 4h python3 run_all.py --algo eGCN --data data/$city --start 25200 --steps 10800 --exp $city --device 1  || true
+    timeout 4h python3 run_all.py --algo eGCN --data data/$city --start 25200 --steps 10800 --exp $city --device 2  || true
 done
