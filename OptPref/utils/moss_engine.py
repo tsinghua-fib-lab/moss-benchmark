@@ -16,9 +16,13 @@ def _populate_lookup_array(cnt_dict_items:list[tuple[int,int]], lane_lookup_arra
         lane_lookup_array[lid] = v
     return lane_lookup_array
 @njit
-def _populate_lane_counting_dict(has_vehicle_lane_ids:np.ndarray, lane_counting_dict:dict[int,int],lane_ids:np.ndarray,):
+def _populate_lane_counting_dict(has_vehicle_lane_ids:np.ndarray, lane_ids:np.ndarray,):
+    lane_counting_dict:dict[int,int] = {}
     for lid in has_vehicle_lane_ids:
-        lane_counting_dict[lid]+=1
+        if lid in lane_counting_dict:
+            lane_counting_dict[lid] += 1
+        else:
+            lane_counting_dict[lid] = 1
     return [lane_counting_dict[lid] for lid in lane_ids]
 
 __all__ = ["get_moss_engine"]
@@ -109,10 +113,9 @@ class MossApiEngine:
         self,
     ) -> NDArray:
         fetched_persons = self.moss_engine.fetch_persons()
-        lane_counting_dict = defaultdict(int)
         has_vehicle_lane_ids = fetched_persons["lane_id"]
         if len(has_vehicle_lane_ids)>0:
-            lane_counts_array = _populate_lane_counting_dict(has_vehicle_lane_ids,lane_counting_dict,self.lane_ids)
+            lane_counts_array = _populate_lane_counting_dict(has_vehicle_lane_ids,self.lane_ids)
             lane_counts_array =  np.array(lane_counts_array, dtype=int)
         else:
             lane_counts_array = np.zeros(len(self.map_pb.lanes), dtype=int)
