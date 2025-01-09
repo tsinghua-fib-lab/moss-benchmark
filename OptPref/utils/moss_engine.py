@@ -17,12 +17,9 @@ def _populate_lookup_array(cnt_dict_items:list[tuple[int,int]], lane_lookup_arra
     return lane_lookup_array
 @njit
 def _populate_lane_counting_dict(has_vehicle_lane_ids:np.ndarray, lane_ids:np.ndarray,):
-    lane_counting_dict:dict[int,int] = {}
+    lane_counting_dict:dict[int,int] = {lid: 0 for lid in lane_ids}
     for lid in has_vehicle_lane_ids:
-        if lid in lane_counting_dict:
-            lane_counting_dict[lid] += 1
-        else:
-            lane_counting_dict[lid] = 1
+        lane_counting_dict[lid] += 1
     return [lane_counting_dict[lid] for lid in lane_ids]
 
 __all__ = ["get_moss_engine"]
