@@ -196,7 +196,10 @@ class Env:
     def step(self):
         for _ in range(self.step_interval):
             self._step()
+            _start_time  = time.time()
             self.eng.next_step()
+            _end_time  = time.time()
+            print(f"next_step cost {_end_time-_start_time}")
             self.time = self.eng.get_current_time()
         self.step_count += 1
         if self.step_count == self.step_reset:
