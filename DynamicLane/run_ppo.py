@@ -201,7 +201,7 @@ class Env:
 
     def observe(self):
         c1 = self.eng.get_lane_vehicle_counts()[self.l_ids]
-        c2 = self.eng.get_lane_waiting_at_end_vehicle_counts(distance_to_end=150)
+        c2 = self.eng.get_lane_waiting_at_end_vehicle_counts(distance_to_end=150)[self.l_ids]
         obs_1 = np.stack(
             [
                 self._clip_veh_cnt(c1),
