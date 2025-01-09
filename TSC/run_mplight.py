@@ -45,8 +45,7 @@ class Env:
         self.all_lane_ids: list[int] = [i for i in range(self.eng.lane_count)]
 
         self.jids = [i for i, j in enumerate(self.eng.get_junction_phase_counts()) if j > 1]
-        js = [M.junctions[i].id for i in self.jids]
-        self.in_lanes, self.out_lanes, self.jpl, self.jpl_label = self.eng.colight_lanes_collect(js)
+        self.in_lanes, self.out_lanes, self.jpl, self.jpl_label = self.eng.colight_lanes_collect(self.jids)
 
         def in_lane_numpy(in_lanes):
             max_in_lane_num = max([len(i) for i in in_lanes])
