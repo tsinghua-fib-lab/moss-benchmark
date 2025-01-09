@@ -19,8 +19,6 @@ from tqdm import tqdm
 NN_INPUT_SCALER = 5
 
 
-ROAD_ID_START = 2_0000_0000
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
