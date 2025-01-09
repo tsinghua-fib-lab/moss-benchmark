@@ -11,8 +11,8 @@ from numba import njit
 
 from .decorators import timing_decorator
 @njit
-def _populate_lookup_array(cnt_dict_items:list[tuple[int,int]], lane_lookup_array:np.ndarray):
-    for lid, v in cnt_dict_items:
+def _populate_lookup_array(cnt_dict:dict[int,int], lane_lookup_array:np.ndarray):
+    for lid, v in cnt_dict.items():
         lane_lookup_array[lid] = v
     return lane_lookup_array
 @njit
@@ -20,7 +20,7 @@ def _populate_lane_counting_dict(has_vehicle_lane_ids:np.ndarray, lane_ids:np.nd
     lane_counting_dict:dict[int,int] = {lid: 0 for lid in lane_ids}
     for lid in has_vehicle_lane_ids:
         lane_counting_dict[lid] += 1
-    return [lane_counting_dict[lid] for lid in lane_ids]
+    return np.array([lane_counting_dict[lid] for lid in lane_ids], dtype=int)
 
 __all__ = ["get_moss_engine"]
 
@@ -113,7 +113,6 @@ class MossApiEngine:
         has_vehicle_lane_ids = fetched_persons["lane_id"]
         if len(has_vehicle_lane_ids)>0:
             lane_counts_array = _populate_lane_counting_dict(has_vehicle_lane_ids,self.lane_ids)
-            lane_counts_array =  np.array(lane_counts_array, dtype=int)
         else:
             lane_counts_array = np.zeros(len(self.map_pb.lanes), dtype=int)
         return lane_counts_array
@@ -126,18 +125,16 @@ class MossApiEngine:
             speed_threshold, distance_to_end
         )
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
-        cnt_items_list = [(k,v) for k,v in cnt_dict.items()]
-        if len(cnt_items_list)>0:
-            lane_lookup_array = _populate_lookup_array(cnt_items_list,lane_lookup_array)
+        if len(cnt_dict)>0:
+            lane_lookup_array = _populate_lookup_array(cnt_dict,lane_lookup_array)
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
     def get_lane_waiting_vehicle_counts(self, speed_threshold: float = 0.1) -> NDArray:
         cnt_dict = self.moss_engine.get_lane_waiting_vehicle_counts(speed_threshold)
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
-        cnt_items_list = [(k,v) for k,v in cnt_dict.items()]
-        if len(cnt_items_list)>0:
-            lane_lookup_array = _populate_lookup_array(cnt_items_list,lane_lookup_array)
+        if len(cnt_dict)>0:
+            lane_lookup_array = _populate_lookup_array(cnt_dict,lane_lookup_array)
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
