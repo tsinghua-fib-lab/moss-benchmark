@@ -152,6 +152,7 @@ class Env:
 
     def _step(self):
         # 处理agent，到时间则放行
+        _start_time  = time.time()
         while self.persons and self.persons[-1][0] <= self.time + 1:
             irs = self.persons.pop()[1]
             if self.vehicle_policy == VehiclePolicy.SHORTEST:
@@ -168,8 +169,12 @@ class Env:
                 choice = min(ic, key=lambda x: x[1] + x[2])[0]
             # 放行指定车辆
             self.eng.set_person_enable(choice, True)
+        _end_time  = time.time()
+        print(f"放行 cost {_end_time-_start_time}")
         # 处理road，记录平均通行时间
+        _start_time  = time.time()
         fetched_persons = self.eng.fetch_persons()
+        _end_time  = time.time()
         _vehicle_lane_dict = {
             pid: lid
             for pid, lid in zip(fetched_persons["id"], fetched_persons["lane_id"])
@@ -186,6 +191,7 @@ class Env:
                     self.road_travel_time[self.lane2road[lane]].append(self.time - t)
                 self.vehicle_enter_time[i] = self.time
         self.vehicle_lane = vl
+        print(f"fetched_persons cost {_end_time-_start_time}")
 
     def step(self):
         for _ in range(self.step_interval):
