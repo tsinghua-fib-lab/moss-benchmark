@@ -112,6 +112,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--exp", type=str, help="name of the experiment")
     parser.add_argument('--data', type=str, default='./data/us_newyork')
+    parser.add_argument("--device", type=int, default=0)
     parser.add_argument('--start', type=int, default=0)
     parser.add_argument('--steps', type=int, default=3600)
     parser.add_argument('--interval', type=int, default=30)
@@ -155,6 +156,7 @@ def main():
         step_count=args.steps//args.interval,
         log_dir=path,
         reward='queue',
+        device=args.device,
     )
 
     def cal_neighbor_obs(obs, neighbor_idxs, max_neighbor_num):

@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument("--exp", type=str, help="name of the experiment")
     parser.add_argument("--suffix", type=str)
     parser.add_argument("--seed", type=int, default=43, help="seed of the experiment")
+    parser.add_argument("--device", type=int, default=0)
 
     parser.add_argument("--data", type=str, default="./data/us_newyork")
     parser.add_argument("--start", type=int, default=0)
@@ -103,7 +104,7 @@ def pad(arr, value):
 
 class Env:
     def __init__(
-        self, data_path, start_step, step_size, step_count, log_dir, max_veh_cnt=200
+        self, data_path, start_step, step_size, step_count, log_dir, device,max_veh_cnt=200
     ):
         self.log_dir = log_dir
         self.max_veh_cnt = max_veh_cnt
@@ -111,6 +112,7 @@ class Env:
             map_file=f"{data_path}/map.bin",
             person_file=f"{data_path}/agents.bin",
             start_step=start_step,
+            device=device,
         )
         self.eng = eng = MossApiEngine(self.moss_eng)
         self.j_ids = j_ids = [
@@ -352,6 +354,7 @@ def main():
         step_size=args.interval,
         step_count=args.steps // args.interval,
         log_dir=path,
+        device=args.device,
     )
     dim_mlp = [int(i) for i in args.mlp.split(",")]
     agent = Model(env, dim_mlp).to(device)

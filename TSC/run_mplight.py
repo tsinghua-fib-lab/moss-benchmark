@@ -28,12 +28,13 @@ def decompose_action(x, sizes):
 
 
 class Env:
-    def __init__(self, data_path, start_step, step_size, step_count, log_dir, reward, alpha=0):
+    def __init__(self, data_path, start_step, step_size, step_count, log_dir, reward, device,alpha=0):
         self.log_dir = log_dir
         self.moss_eng = get_engine(
             map_file=f'{data_path}/map.bin',
             person_file=f'{data_path}/agents.bin',
             start_step=start_step,
+            device=device,
         )
         self.eng = MossApiEngine(
             self.moss_eng
@@ -322,6 +323,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--exp", type=str, help="name of the experiment")
     parser.add_argument('--data', type=str, default='./data/us_newyork')
+    parser.add_argument("--device", type=int, default=0)
     parser.add_argument('--start', type=int, default=0)
     parser.add_argument('--steps', type=int, default=3600)
     parser.add_argument('--interval', type=int, default=30)
@@ -370,6 +372,7 @@ def main():
         log_dir=path,
         reward='pressure',
         alpha=args.alpha,
+        device=args.device,
     )
     args.num_agents = len(env.jids)
 

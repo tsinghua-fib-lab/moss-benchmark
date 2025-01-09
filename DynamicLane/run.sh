@@ -15,5 +15,5 @@ for city in $NORMAL_CITIES $SMOOTH_CITIES $CONGESTED_CITIES; do
         python3 run_baseline.py --algo $algo --data data/$city --start 25200 --steps 10800 --exp $city
     done
     # train for 3 hours
-    timeout 3h python3 run_ppo.py --data data/$city --start 25200 --steps 10800 --exp $city  || true
+    timeout 3h python3 run_ppo.py --data data/$city --start 25200 --steps 10800 --exp $city || true
 done

@@ -14,6 +14,7 @@ def main():
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--steps", type=int, default=3600)
     parser.add_argument("--interval", type=int, default=30)
+    parser.add_argument("--device", type=int, default=0)
 
     args = parser.parse_args()
 
@@ -28,6 +29,7 @@ def main():
         map_file=f"{args.data}/map.bin",
         person_file=f"{args.data}/agents.bin",
         start_step=args.start,
+        device=args.device,
     )
     t = time.time()
     eng.set_tl_policy_batch([i for i in range(eng.junction_count)], TlPolicy.FIXED_TIME)

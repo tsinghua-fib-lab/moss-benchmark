@@ -88,6 +88,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--exp", type=str, help="name of the experiment")
     parser.add_argument("--data", type=str, default="./data/us_newyork")
+    parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--steps", type=int, default=3600)
     parser.add_argument("--interval", type=int, default=30)
@@ -139,6 +140,7 @@ def main():
         log_dir=path,
         reward="queue",
         alpha=args.alpha,
+        device=args.device,
     )
     args.num_agents = len(env.jids)
 
