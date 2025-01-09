@@ -1,6 +1,6 @@
 import math
 from collections import defaultdict
-from decorators import timing_decorator
+from .decorators import timing_decorator
 import numpy as np
 import pycityproto.city.map.v2.light_pb2 as lightv2
 import pycityproto.city.map.v2.map_pb2 as mapv2
