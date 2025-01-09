@@ -358,3 +358,11 @@ class MossApiEngine:
         self,
     ) -> dict[str, NDArray]:
         return self.moss_engine.fetch_persons()
+
+    def set_road_lane_plan(
+        self,road_index:int,plan_index:int,
+    ):
+        self.moss_engine.set_road_lane_plan(road_index,plan_index)
+
+    def set_lane_restriction(self,lane_index: int, flag: bool,):
+        self.moss_engine.set_lane_restriction(lane_index,flag)

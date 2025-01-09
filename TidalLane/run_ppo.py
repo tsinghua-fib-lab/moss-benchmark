@@ -15,10 +15,9 @@ from torch import nn, optim
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter  # type: ignore
 from tqdm import tqdm
+from utils.moss_engine import MossApiEngine
 
 NN_INPUT_SCALER = 5
-
-ROAD_ID_START = 2_0000_0000
 
 
 def parse_args():
@@ -27,6 +26,7 @@ def parse_args():
     parser.add_argument("--exp", type=str, help="name of the experiment")
     parser.add_argument("--suffix", type=str)
     parser.add_argument("--seed", type=int, default=43, help="seed of the experiment")
+    parser.add_argument("--device", type=int, default=0)
 
     parser.add_argument("--data", type=str, default="data/us_newyork")
     parser.add_argument("--start", type=int, default=0)
@@ -104,20 +104,29 @@ def pad(arr, value):
 
 class Env:
     def __init__(
-        self, data_path, start_step, step_size, step_count, log_dir, max_veh_cnt=200
+        self,
+        data_path,
+        start_step,
+        step_size,
+        step_count,
+        log_dir,
+        device,
+        max_veh_cnt=200,
     ):
         self.log_dir = log_dir
         self.max_veh_cnt = max_veh_cnt
-        self.eng = eng = get_engine(
+        self.moss_eng = moss_eng = get_engine(
             map_file=f"{data_path}/map.bin",
             person_file=f"{data_path}/agents.bin",
             start_step=start_step,
+            device=device,
         )
         # 计算观测车道
-        M: Map = eng.get_map(dict_return=False)  # type:ignore
+        M: Map = moss_eng.get_map(dict_return=False)  # type:ignore
         map_lanes_dict: dict[int, Lane] = {i.id: i for i in M.lanes}
-        all_lane_ids: list[int] = [i for i in range(eng.lane_count)]
-        all_road_ids: list[int] = [i + ROAD_ID_START for i in range(eng.road_count)]
+        all_lane_ids: list[int] = [i.id for i in M.lanes]
+        all_road_ids: list[int] = [i.id for i in M.roads]
+        self.eng = MossApiEngine(moss_eng)
         self.all_lane_ids = all_lane_ids
         self.all_road_ids = all_road_ids
         lane_map = {lid: idx for idx, lid in enumerate(all_lane_ids)}
@@ -166,19 +175,13 @@ class Env:
         return np.minimum(self.max_veh_cnt, cnt) / self.max_veh_cnt * NN_INPUT_SCALER
 
     def reset(self):
-        self.eng.restore_checkpoint(self._cid)
+        self.eng.reset(self._cid)
 
     def observe(self):
-        fetched_persons = self.eng.fetch_persons()
-        _lane_vehicle_dict = {
-            lid: pid
-            for pid, lid in zip(fetched_persons["id"], fetched_persons["lane_id"])
-        }
-        c1 = np.array([_lane_vehicle_dict[lid] for lid in self.all_lane_ids])[
+        c1 = self.eng.get_lane_vehicle_counts()[self.l_ids]
+        c2 = self.eng.get_lane_waiting_at_end_vehicle_counts(distance_to_end=150)[
             self.l_ids
         ]
-        c2_dict = self.eng.get_lane_waiting_at_end_vehicle_counts(distance_to_end=150)
-        c2 = np.array([c2_dict[lid] for lid in self.all_lane_ids])[self.l_ids]
         obs = np.stack(
             [
                 self._clip_veh_cnt(c1),
@@ -393,6 +396,7 @@ def main():
         step_size=args.interval,
         step_count=args.steps // args.interval,
         log_dir=path,
+        device=args.device,
     )
     dim_mlp = [int(i) for i in args.mlp.split(",")]
     agent = Model(env, dim_mlp).to(device)
@@ -411,8 +415,8 @@ def main():
                 )
                 next_obs = torch.Tensor(next_obs).to(device)
             print(
-                f'{info["Throughput"]} {info["ATT-d"]:.1f} {info["ATT-f"]:.1f}' # type:ignore
-            ) 
+                f'{info["Throughput"]} {info["ATT-d"]:.1f} {info["ATT-f"]:.1f}'  # type:ignore
+            )
         return
     optimizer = optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)
     # 每个路口视为1个env，但obs和done是共享的
@@ -462,14 +466,16 @@ def main():
                         "metric/ATT-f", info["ATT-f"], global_step  # type:ignore
                     )
                     writer.add_scalar(
-                        "metric/Throughput", info["Throughput"], global_step  # type:ignore
+                        "metric/Throughput", # type:ignore
+                        info["Throughput"],
+                        global_step,  # type:ignore
                     )
                 writer.add_scalar(
                     "metric/Reward", info["reward"], global_step  # type:ignore
                 )
             writer.add_scalar(
                 "charts/Sample Time", time.time() - _t, global_step  # type:ignore
-            ) 
+            )
 
             if os.path.exists(path + "/lr.txt"):
                 try:
@@ -589,9 +595,9 @@ def main():
 
                     optimizer.zero_grad()
                     loss.backward()
-                    nn.utils.clip_grad_norm_( # type:ignore
+                    nn.utils.clip_grad_norm_(  # type:ignore
                         agent.parameters(), args.max_grad_norm
-                    ) 
+                    )
                     optimizer.step()
 
             y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
@@ -646,8 +652,8 @@ def main():
                 global_step,  # type:ignore
             )
             msg = (
-                f'{loss.item():.3f} ATT: {info["ATT-d"]:.1f} TP: {info["Throughput"]}'  # type:ignore
-            )
+                f'{loss.item():.3f} ATT: {info["ATT-d"]:.1f} TP: {info["Throughput"]}' # type:ignore
+            ) 
             bar.set_description(msg)
             if not args.debug:
                 with open(f"{path}/msg.log", "w") as f:

@@ -8,27 +8,25 @@ from glob import glob
 import numpy as np
 from engine import get_engine
 from moss import Engine
+from mosstool.type import Map
 from tqdm.auto import tqdm
-
-ROAD_ID_START = 2_0000_0000
+from utils.moss_engine import MossApiEngine
 
 
 class Env:
     def __init__(self, eng: Engine, data):
-        self.eng = eng
+        self.moss_eng = eng
+        self.eng = MossApiEngine(eng)
         ps = json.load(open(f"{data}/road_pairs.json"))
         ps = sum(ps, [])
-
-        self.all_road_ids: list[int] = [
-            i + ROAD_ID_START for i in range(eng.road_count)
-        ]
+        M: Map = eng.get_map(dict_return=False)  # type:ignore
+        self.all_road_ids: list[int] = [i.id for i in M.roads]
         self.rs = np.array(ps[0::3]).reshape(-1, 2)
         self.ls = np.array(ps[1::3]).reshape(-1, 2)
         self.ns = np.array(ps[2::3]).reshape(-1, 2)
 
     def get_vehicle_counts(self):
-        cnt_dict = self.eng.get_road_vehicle_counts()
-        cnt = np.array([cnt_dict.get(rid,0) for rid in cnt_dict])
+        cnt = self.eng.get_road_vehicle_counts()
         return cnt[self.rs]
 
     def set_state(self, states):
@@ -62,6 +60,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--exp", type=str, help="name of the experiment")
     parser.add_argument("--data", type=str, default="data/us_newyork")
+    parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--steps", type=int, default=7200)
     parser.add_argument("--interval", type=int, default=180)
@@ -84,6 +83,7 @@ def main():
         map_file=f"{args.data}/map.bin",
         person_file=f"{args.data}/agents.bin",
         start_step=args.start,
+        device=args.device,
     )
     env = Env(eng, args.data)
     if args.algo == "none":
