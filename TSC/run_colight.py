@@ -27,8 +27,7 @@ def decompose_action(x, sizes):
 
 class Env(EnvBase):
     def observe(self):
-        cnt_dict = self.eng.get_lane_waiting_vehicle_counts()
-        # TODO:修改这里
+        cnt = self.eng.get_lane_waiting_vehicle_counts()
         in_cnt_states, out_cnt_states = cnt[self.phase_lanes_inflow], cnt[self.phase_lanes_outflow]
         in_cnt_states[self.zero_lanes_inflow == 1] = 0
         out_cnt_states[self.zero_lanes_outflow == 1] = 0

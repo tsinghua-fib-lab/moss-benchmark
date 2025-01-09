@@ -60,7 +60,7 @@ class CityFlowApiEngine:
     ) -> float:  # type:ignore
         return self.cityflow_engine._get_finished_vehicle_average_traveling_time()
 
-    def get_finished_vehicle_count(
+    def get_finished_person_count(
         self,
     ) -> int:  # type:ignore
         return self.cityflow_engine._get_finished_vehicle_count()

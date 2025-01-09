@@ -11,10 +11,12 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from engine import get_engine
-from moss.map import LaneTurn, LaneType, LightState
+from mosstool.type import Map
 from torch import nn, optim
-from torch.utils.tensorboard import SummaryWriter # type:ignore
+from torch.utils.tensorboard import SummaryWriter  # type:ignore
 from tqdm import tqdm
+
+from .utils.moss_engine import MossApiEngine
 
 
 def decompose_action(x, sizes):
@@ -28,64 +30,18 @@ def decompose_action(x, sizes):
 class Env:
     def __init__(self, data_path, start_step, step_size, step_count, log_dir, reward, alpha=0):
         self.log_dir = log_dir
-        self.eng = get_engine(
+        self.moss_eng = get_engine(
             map_file=f'{data_path}/map.bin',
             person_file=f'{data_path}/agents.bin',
             start_step=start_step,
         )
         self.alpha = alpha
-        M = self.eng.get_map()
-
-        def lanes_collect(js):
-            in_lanes_list = []
-            out_lanes_list = []
-            phase_lanes_list = []
-            phase_lanes_A_list, phase_lanes_B_list = [], []
-            phase_label_list = []
-
-            for jid in js:
-                junction = M.junction_map[jid]
-                phases_lane = []
-                phases_lanes_A, phases_lanes_B = [], []
-                in_lane, out_lane = [], []
-                in_lane_A, in_lane_B, out_lane_A, out_lane_B = [], [], [], []
-                labels = []
-                if junction.tl:
-                    tl = junction.tl
-                    for phase in tl.phases:
-                        lanes = [i for i, j in zip(junction.lanes, phase.states) if j == LightState.GREEN and i.type == LaneType.DRIVING and i.turn != LaneTurn.RIGHT and i.turn != LaneTurn.AROUND]
-                        in_lanes = [m.predecessors[0].id for m in lanes]
-                        out_lanes = [m.successors[0].id for m in lanes]
-                        phases_lane.append([list(set(in_lanes)), list(set(out_lanes))])
-                        in_lane += in_lanes
-                        out_lane += out_lanes
-                        labels.append([
-                            any(i.turn == LaneTurn.STRAIGHT for i in lanes),
-                            any(i.turn == LaneTurn.LEFT for i in lanes)
-                        ])
-                        # 对lanes根据具体的travel movement进行分类
-                        in_angles = [lane.geom.angle_in for lane in lanes]
-                        in_angles = np.array(in_angles)-min(in_angles)
-                        lanes_tmB = (in_angles >= np.pi/2) & (in_angles <= 3*np.pi/2)
-                        lanes_tmA = [not i for i in lanes_tmB]
-                        lanes_tmA, lanes_tmB = np.array(lanes)[lanes_tmA], np.array(lanes)[lanes_tmB]
-                        in_lane_A = [m.predecessors[0].id for m in lanes_tmA]
-                        in_lane_B = [m.predecessors[0].id for m in lanes_tmB]
-                        out_lane_A = [m.successors[0].id for m in lanes_tmA]
-                        out_lane_B = [m.successors[0].id for m in lanes_tmB]
-                        phases_lanes_A.append([list(set(in_lane_A)), list(set(out_lane_A))])
-                        phases_lanes_B.append([list(set(in_lane_B)), list(set(out_lane_B))])
-                in_lanes_list.append(list(set(in_lane)))
-                out_lanes_list.append(list(set(out_lane)))
-                phase_lanes_list.append(phases_lane)
-                phase_lanes_A_list.append(phases_lanes_A)
-                phase_lanes_B_list.append(phases_lanes_B)
-                phase_label_list.append(labels)
-            return in_lanes_list, out_lanes_list, phase_lanes_list, phase_label_list, phase_lanes_A_list, phase_lanes_B_list
+        self.eng=MossApiEngine(self.moss_eng)
+        M:Map = self.moss_eng.get_map(dict_return=False)# type:ignore
 
         self.jids = [i for i, j in enumerate(self.eng.get_junction_phase_counts()) if j > 1]
         js = [M.junctions[i].id for i in self.jids]
-        self.in_lanes, self.out_lanes, self.jpl, self.jpl_label, self.jpl_A, self.jpl_B = lanes_collect(js)
+        self.in_lanes, self.out_lanes, self.jpl, self.jpl_label, self.jpl_A, self.jpl_B = self.eng.advanced_mplight_frap_lanes_collect(js)
 
         def in_lane_numpy(in_lanes):
             max_in_lane_num = max([len(i) for i in in_lanes])
@@ -258,7 +214,7 @@ class Env:
         self.one_hot_mapping_matrix = np.eye(self.max_action_size)
 
     def reset(self):
-        self.eng.restore_checkpoint(self._cid)
+        self.eng.reset(self._cid)
 
     def observe(self):
         cnt = self.eng.get_lane_waiting_vehicle_counts()
@@ -350,7 +306,7 @@ class Env:
             r = np.array([-np.abs(np.sum(cnt[self.in_lanes[i]])-np.sum(cnt[self.out_lanes[i]])) for i in range(len(self.in_lanes))])
             r_neighbour = np.dot(r, self.connect_matrix)
             r = r + self.alpha*r_neighbour
-        self.info['reward'] = np.mean(r)
+        self.info['reward'] = np.mean(r)# type:ignore
 
         queue_length = cnt[self.in_lane_array]
         queue_length[self.zero_in_lane_array == 1] = 0
@@ -368,7 +324,7 @@ class Env:
             done = True
             with open(f'{self.log_dir}/info.log', 'a') as f:
                 f.write(f"{self.info['ATT']:.3f} {self.info['Throughput']} {time.time():.3f}\n")
-        return s, r, done, self.info
+        return s, r, done, self.info # type:ignore
 
 
 class Replay:
@@ -519,7 +475,7 @@ def main():
                     m = Q(torch.tensor(obs, dtype=torch.float32, device=device), torch.tensor(neighbor_obs, dtype=torch.float32, device=device), torch.tensor(neighbor_mask, dtype=torch.float32, device=device))
                     m[torch.tensor(available_actions, dtype=torch.float32, device=device) == 0] = -1e9
                     action_exploit = torch.argmax(m, dim=-1).cpu().numpy()
-                action = np.choose(np.random.uniform(size=args.num_agents) < eps, [action_explore, action_exploit])
+                action = np.choose(np.random.uniform(size=args.num_agents) < eps, [action_explore, action_exploit])# type:ignore
             action_one_hot = np.zeros((args.num_agents, env.max_action_size))
             for i, j in enumerate(env.action_sizes):
                 action_one_hot[i, action[i]] = 1
@@ -581,7 +537,7 @@ def main():
                         opt.zero_grad()
                         loss.backward()
                         opt.step()
-                writer.add_scalar('chart/loss', loss.item(), step)
+                writer.add_scalar('chart/loss', loss.item(), step)# type:ignore
                 bar.set_description(f'ATT: {info["ATT"]:.3f} TP: {info["Throughput"]} ')
                 if step % args.target_freq == 0:
                     Q_target.load_state_dict(Q.state_dict())
