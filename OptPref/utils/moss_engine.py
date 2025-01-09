@@ -11,8 +11,8 @@ from numba import njit
 
 from .decorators import timing_decorator
 @njit
-def _populate_lookup_array(cnt_dict:dict[int,int], lane_lookup_array:np.ndarray):
-    for lid, v in cnt_dict.items():
+def _populate_lookup_array(cnt_items:list[tuple[int,int]], lane_lookup_array:np.ndarray):
+    for lid, v in cnt_items:
         lane_lookup_array[lid] = v
     return lane_lookup_array
 @njit
@@ -126,7 +126,7 @@ class MossApiEngine:
         )
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
         if len(cnt_dict)>0:
-            lane_lookup_array = _populate_lookup_array(cnt_dict,lane_lookup_array)
+            lane_lookup_array = _populate_lookup_array([(k,v) for k,v in cnt_dict.items()],lane_lookup_array)
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
@@ -134,7 +134,7 @@ class MossApiEngine:
         cnt_dict = self.moss_engine.get_lane_waiting_vehicle_counts(speed_threshold)
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
         if len(cnt_dict)>0:
-            lane_lookup_array = _populate_lookup_array(cnt_dict,lane_lookup_array)
+            lane_lookup_array = _populate_lookup_array([(k,v) for k,v in cnt_dict.items()],lane_lookup_array)
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
