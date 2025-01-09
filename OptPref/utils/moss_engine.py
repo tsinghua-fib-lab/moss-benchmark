@@ -16,7 +16,7 @@ def _populate_lookup_array(cnt_dict_items:list[tuple[int,int]], lane_lookup_arra
         lane_lookup_array[lid] = v
     return lane_lookup_array
 @njit
-def _populate_lane_counting_dict(has_vehicle_lane_ids:list[int], lane_counting_dict:dict[int,int],lane_ids:list[int]):
+def _populate_lane_counting_dict(has_vehicle_lane_ids:np.ndarray, lane_counting_dict:dict[int,int],lane_ids:np.ndarray,):
     for lid in has_vehicle_lane_ids:
         lane_counting_dict[lid]+=1
     return [lane_counting_dict[lid] for lid in lane_ids]
@@ -122,14 +122,14 @@ class MossApiEngine:
             speed_threshold, distance_to_end
         )
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
-        lane_lookup_array = _populate_lookup_array(cnt_dict.items(),lane_lookup_array)
+        lane_lookup_array = _populate_lookup_array([(k,v) for k,v in cnt_dict.items()],lane_lookup_array)
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
     def get_lane_waiting_vehicle_counts(self, speed_threshold: float = 0.1) -> NDArray:
         cnt_dict = self.moss_engine.get_lane_waiting_vehicle_counts(speed_threshold)
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
-        lane_lookup_array = _populate_lookup_array(cnt_dict.items(),lane_lookup_array)
+        lane_lookup_array = _populate_lookup_array([(k,v) for k,v in cnt_dict.items()],lane_lookup_array)
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
