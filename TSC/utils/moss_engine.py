@@ -110,8 +110,12 @@ class MossApiEngine:
     ) -> NDArray:
         fetched_persons = self.moss_engine.fetch_persons()
         lane_counting_dict = defaultdict(int)
-        lane_counts_array = _populate_lane_counting_dict(fetched_persons["lane_id"],lane_counting_dict,self.lane_ids)
-        lane_counts_array =  np.array(lane_counts_array, dtype=int)
+        has_vehicle_lane_ids = fetched_persons["lane_id"]
+        if len(has_vehicle_lane_ids)>0:
+            lane_counts_array = _populate_lane_counting_dict(has_vehicle_lane_ids,lane_counting_dict,self.lane_ids)
+            lane_counts_array =  np.array(lane_counts_array, dtype=int)
+        else:
+            lane_counts_array = np.zeros(len(self.map_pb.lanes), dtype=int)
         return lane_counts_array
 
     @timing_decorator
@@ -122,14 +126,18 @@ class MossApiEngine:
             speed_threshold, distance_to_end
         )
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
-        lane_lookup_array = _populate_lookup_array([(k,v) for k,v in cnt_dict.items()],lane_lookup_array)
+        cnt_items_list = [(k,v) for k,v in cnt_dict.items()]
+        if len(cnt_items_list)>0:
+            lane_lookup_array = _populate_lookup_array(cnt_items_list,lane_lookup_array)
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
     def get_lane_waiting_vehicle_counts(self, speed_threshold: float = 0.1) -> NDArray:
         cnt_dict = self.moss_engine.get_lane_waiting_vehicle_counts(speed_threshold)
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
-        lane_lookup_array = _populate_lookup_array([(k,v) for k,v in cnt_dict.items()],lane_lookup_array)
+        cnt_items_list = [(k,v) for k,v in cnt_dict.items()]
+        if len(cnt_items_list)>0:
+            lane_lookup_array = _populate_lookup_array(cnt_items_list,lane_lookup_array)
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
