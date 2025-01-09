@@ -8,8 +8,6 @@ from engine import get_engine
 from mosstool.type import Lane, LaneType, Map
 from tqdm.auto import tqdm
 
-ROAD_ID_START = 2_0000_0000
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -40,8 +38,8 @@ def main():
     )
     M: Map = eng.get_map(dict_return=False)  # type:ignore
     map_lanes_dict: dict[int, Lane] = {i.id: i for i in M.lanes}
-    all_lane_ids: list[int] = [i for i in range(eng.lane_count)]
-    all_road_ids: list[int] = [i + ROAD_ID_START for i in range(eng.road_count)]
+    all_lane_ids: list[int] = [i.id for i in M.lanes]
+    all_road_ids: list[int] = [i.id for i in M.roads]
     lane_map = {lid: idx for idx, lid in enumerate(all_lane_ids)}
     road_map = {rid: idx for idx, rid in enumerate(all_road_ids)}
     r_ids = [road_map[r.id] for r in M.roads if len(r.next_road_lane_plans) > 1]

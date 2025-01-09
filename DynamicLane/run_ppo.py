@@ -119,8 +119,8 @@ class Env:
         # 计算观测车道
         M: Map = eng.get_map(dict_return=False)  # type:ignore
         map_lanes_dict: dict[int, Lane] = {i.id: i for i in M.lanes}
-        all_lane_ids: list[int] = [i for i in range(eng.lane_count)]
-        all_road_ids: list[int] = [i + ROAD_ID_START for i in range(eng.road_count)]
+        all_lane_ids: list[int] = [i.id for i in M.lanes]
+        all_road_ids: list[int] = [i.id for i in M.roads]
         self.all_lane_ids = all_lane_ids
         self.all_road_ids = all_road_ids
         lane_map = {lid: idx for idx, lid in enumerate(all_lane_ids)}
