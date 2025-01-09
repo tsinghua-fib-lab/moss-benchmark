@@ -88,8 +88,6 @@ def main():
             # print(''.join(map(str, r_plan_ids)))
         else:
             raise NotImplementedError
-        print("r_ids:",r_ids)
-        print("r_plan_ids:",r_plan_ids)
         eng.set_road_lane_plan_batch(r_ids, r_plan_ids)
         eng.next_step(args.interval)
         cnt_dict = eng.get_lane_waiting_vehicle_counts()
