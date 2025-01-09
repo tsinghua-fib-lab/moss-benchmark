@@ -181,7 +181,9 @@ class Env:
             pid: lid
             for pid, lid in zip(fetched_persons["id"], fetched_persons["lane_id"])
         }
+        print(f"build _vehicle_lane_dict {time.time()-_start_time}")
         vl = np.array([_vehicle_lane_dict[pid] for pid in self.all_person_ids])
+        print(f"build vl {time.time()-_start_time}")
         mask = vl != self.vehicle_lane
         if np.any(mask):
             for i, lane, t in zip(
@@ -192,6 +194,7 @@ class Env:
                 if lane != -1 and self.lane2road[lane] != -1:
                     self.road_travel_time[self.lane2road[lane]].append(self.time - t)
                 self.vehicle_enter_time[i] = self.time
+        print(f"np.any(mask) {time.time()-_start_time}")
         self.vehicle_lane = vl
         _end_time  = time.time()
         print(f"mask cost {_end_time-_start_time}")
