@@ -35,6 +35,8 @@ class MossApiEngine:
     ):
         self.moss_engine: Engine = moss_engine
         self.map_pb: Map = moss_engine.get_map(dict_return=False)  # type:ignore
+        # lane look up
+        self.lane_ids = np.array([l.id for l in self.map_pb.lanes], dtype=int)
 
     def get_current_time(
         self,
@@ -106,18 +108,26 @@ class MossApiEngine:
         cnt_dict = self.moss_engine.get_lane_waiting_at_end_vehicle_counts(
             speed_threshold, distance_to_end
         )
-        cnt = [cnt_dict.get(l.id, 0) for l in self.map_pb.lanes]
-        return np.array(
-            cnt,
-            dtype=int,
-        )
+        # cnt = [cnt_dict.get(l.id, 0) for l in self.map_pb.lanes]
+        # return np.array(
+        #     cnt,
+        #     dtype=int,
+        # )
+        lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
+        for lid,v in cnt_dict.items():
+                lane_lookup_array[lid] = v
+        return lane_lookup_array[self.lane_ids]
     @timing_decorator
     def get_lane_waiting_vehicle_counts(self, speed_threshold: float = 0.1) -> NDArray:
         cnt_dict = self.moss_engine.get_lane_waiting_vehicle_counts(speed_threshold)
-        return np.array(
-            [cnt_dict.get(l.id,0) for l in self.map_pb.lanes],
-            dtype=int,
-        )
+        # return np.array(
+        #     [cnt_dict.get(l.id,0) for l in self.map_pb.lanes],
+        #     dtype=int,
+        # )
+        lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
+        for lid,v in cnt_dict.items():
+                lane_lookup_array[lid] = v
+        return lane_lookup_array[self.lane_ids]
     @timing_decorator
     def set_tl_phase_batch(self, junction_indices: list[int], phase_indices: list[int]):
         self.moss_engine.set_tl_phase_batch(junction_indices, phase_indices)
