@@ -124,6 +124,7 @@ class Env:
         ]
         self.vehicle_enter_time = np.zeros(self.eng.person_count)
         fetched_persons = self.eng.fetch_persons()
+        print(len(fetched_persons["id"]),len(fetched_persons["lane_id"]))
         assert len(fetched_persons["id"])==len(all_person_ids),f"invalid person in {person_file}!"
         _person_id_2_pb_index:dict[int,int] = {person_id:pb_index for pb_index,person_id in enumerate(all_person_ids)}
         self.pb_index_2_moss_index:dict[int,int] = {_person_id_2_pb_index[person_id]:moss_index for moss_index,person_id in enumerate(fetched_persons["id"])}
