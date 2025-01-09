@@ -182,6 +182,12 @@ class Env:
             for pid, lid in zip(fetched_persons["id"], fetched_persons["lane_id"])
         }
         print(f"build _vehicle_lane_dict {time.time()-_start_time}")
+        # vl = np.array([_vehicle_lane_dict[pid] for pid in self.all_person_ids])
+        # print(f"build vl {time.time()-_start_time}")
+        
+        
+        
+        # TODO:优化这里
         vl = np.array([_vehicle_lane_dict[pid] for pid in self.all_person_ids])
         print(f"build vl {time.time()-_start_time}")
         mask = vl != self.vehicle_lane

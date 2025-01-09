@@ -128,6 +128,7 @@ class Env:
         assert len(fetched_persons["id"])==len(all_person_ids),f"invalid person in {person_file}!"
         _person_id_2_pb_index:dict[int,int] = {person_id:pb_index for pb_index,person_id in enumerate(all_person_ids)}
         self.pb_index_2_moss_index:dict[int,int] = {_person_id_2_pb_index[person_id]:moss_index for moss_index,person_id in enumerate(fetched_persons["id"])}
+        # FIXME:由于每个id出现三次 这个映射用不了
         self.moss_indices:list[int] = [self.pb_index_2_moss_index[i] for i in range(len(all_person_ids))] 
         # 和pb一致的person排列顺序
         self.vehicle_lane = np.array(
