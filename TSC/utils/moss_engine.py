@@ -93,14 +93,16 @@ class MossApiEngine:
         self,
     ) -> NDArray:
         fetched_persons = self.moss_engine.fetch_persons()
-        lane_counting_dict = defaultdict(int)
-        for lid in fetched_persons["lane_id"]:
-            lane_counting_dict[lid] += 1
-        return np.array([lane_counting_dict[l.id] for l in self.map_pb.lanes], dtype=int)
+        if len(fetched_persons["lane_id"]) == 0:
+            return np.zeros(len(self.map_pb.lanes), dtype=int)
+        unique_lane_ids, lane_counts = np.unique(fetched_persons["lane_id"], return_counts=True)
+        lane_counting_dict = dict(zip(unique_lane_ids, lane_counts))
+        lane_counts_array = np.array([lane_counting_dict.get(l.id, 0) for l in self.map_pb.lanes], dtype=int)
+        return lane_counts_array
     @timing_decorator
     def get_lane_waiting_at_end_vehicle_counts(
         self, speed_threshold: float = 0.1, distance_to_end: float = 100
-    ) -> NDArray:  # type:ignore
+    ) -> NDArray:
         cnt_dict = self.moss_engine.get_lane_waiting_at_end_vehicle_counts(
             speed_threshold, distance_to_end
         )
