@@ -4,6 +4,7 @@ import time
 
 from engine import get_engine
 from moss import TlPolicy
+from tqdm import tqdm
 
 
 def main():
@@ -30,7 +31,13 @@ def main():
     )
     t = time.time()
     eng.set_tl_policy_batch([i for i in range(eng.junction_count)], TlPolicy.MAX_PRESSURE)
-    eng.next_step(args.steps)
+    total_step = args.steps
+    interval = args.interval
+    _to_run_step = [interval for _ in range(total_step // interval)]
+    if total_step % interval > 0:
+        _to_run_step.append(total_step % interval)
+    for step in tqdm(_to_run_step):
+        eng.next_step(step)
     with open(f'{path}/info.log', 'a') as f:
         f.write(f"{eng.get_departed_person_average_traveling_time():.3f} {eng.get_finished_person_count()} {time.time()-t:.3f}\n")
 
