@@ -195,7 +195,10 @@ class Env:
 
     def step(self):
         for _ in range(self.step_interval):
+            _start_time  = time.time()
             self._step()
+            _end_time  = time.time()
+            print(f"self._step() cost {_end_time-_start_time}")
             _start_time  = time.time()
             self.eng.next_step()
             _end_time  = time.time()
@@ -280,8 +283,11 @@ class Env:
 
     def get_obs(self):
         # 观测值为道路的车辆数
+        _start_time = time.time()
         c_dict = self.eng.get_road_vehicle_counts()
         c = np.array([c_dict.get(i,0) for i in self.all_road_ids])
+        _end_time = time.time()
+        print(f"get_obs cost {_end_time-_start_time}")
         return c / 100
 
     def observe(self):
@@ -343,7 +349,8 @@ class EGCNController:
         _start_time = time.time()
         done, next_obs = self.env.step()
         if done:
-            self.obs = self.env.get_obs()
+            self.obs = self.env.get_obs()            
+            print(f"done get_obs cost {time.time()-_start_time}")
         else:
             self.obs = next_obs
         _end_time = time.time()
