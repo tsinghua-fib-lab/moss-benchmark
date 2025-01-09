@@ -7,6 +7,7 @@ import numpy as np
 from engine import get_engine
 from mosstool.type import Lane, LaneType, Map
 from tqdm.auto import tqdm
+from utils.moss_engine import MossApiEngine
 
 
 def main():
@@ -30,13 +31,16 @@ def main():
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
-    eng = get_engine(
+    moss_eng = get_engine(
         map_file=f"{args.data}/map.bin",
         person_file=f"{args.data}/agents.bin",
         start_step=args.start,
         device=args.device,
     )
-    M: Map = eng.get_map(dict_return=False)  # type:ignore
+    M: Map = moss_eng.get_map(dict_return=False)  # type:ignore
+    eng = MossApiEngine(
+        moss_eng
+    )
     map_lanes_dict: dict[int, Lane] = {i.id: i for i in M.lanes}
     all_lane_ids: list[int] = [i.id for i in M.lanes]
     all_road_ids: list[int] = [i.id for i in M.roads]
@@ -73,8 +77,7 @@ def main():
         elif args.algo == "random":
             r_plan_ids = [random.randint(0, 1) for _ in r_plan_ids]
         elif args.algo == "rule":
-            cnt_dict = eng.get_lane_waiting_at_end_vehicle_counts()
-            cnt = np.array([cnt_dict.get(lid,0) for lid in all_lane_ids])
+            cnt = eng.get_lane_waiting_at_end_vehicle_counts()
             new_plan = []
             for nr, i in zip(nrl, r_plan_ids):
                 c = [cnt[x].sum() for x in nr[i]]
@@ -90,8 +93,7 @@ def main():
             raise NotImplementedError
         eng.set_road_lane_plan_batch(r_ids, r_plan_ids)
         eng.next_step(args.interval)
-        cnt_dict = eng.get_lane_waiting_vehicle_counts()
-        cnt = np.array([cnt_dict.get(lid,0) for lid in all_lane_ids])
+        cnt = eng.get_lane_waiting_vehicle_counts()
         cnt = np.minimum(200, cnt) / 200 * 5
         reward += np.mean([-np.mean(cnt[i]) for i in road_lanes])
     print(

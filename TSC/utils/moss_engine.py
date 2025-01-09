@@ -1,28 +1,36 @@
 import math
 from collections import defaultdict
+from typing import Any, Union
 
 import numpy as np
 import pycityproto.city.map.v2.light_pb2 as lightv2
 import pycityproto.city.map.v2.map_pb2 as mapv2
 from moss import Engine, TlPolicy, Verbosity
 from mosstool.type import LaneTurn, LaneType, Map
-from numpy.typing import NDArray
 from numba import njit
+from numpy.typing import NDArray
 
 from .decorators import timing_decorator
+
+
 @njit
-def _populate_lookup_array(cnt_items:list[tuple[int,int]], lane_lookup_array:np.ndarray):
+def _populate_lookup_array(
+    cnt_items: list[tuple[int, int]], lane_lookup_array: np.ndarray
+):
     for lid, v in cnt_items:
         lane_lookup_array[lid] = v
     return lane_lookup_array
+
+
 @njit
-def _populate_lane_counting_dict(has_vehicle_lane_ids:np.ndarray, lane_ids:np.ndarray,):
-    lane_counting_dict:dict[int,int] = {lid: 0 for lid in lane_ids}
+def _populate_lane_counting_dict(
+    has_vehicle_lane_ids: np.ndarray,
+    lane_ids: np.ndarray,
+):
+    lane_counting_dict: dict[int, int] = {lid: 0 for lid in lane_ids}
     for lid in has_vehicle_lane_ids:
         lane_counting_dict[lid] += 1
     return np.array([lane_counting_dict[lid] for lid in lane_ids], dtype=np.int32)
-
-__all__ = ["get_moss_engine"]
 
 
 def get_moss_engine(
@@ -51,6 +59,7 @@ class MossApiEngine:
         self.map_pb: Map = moss_engine.get_map(dict_return=False)  # type:ignore
         # lane look up
         self.lane_ids = np.array([l.id for l in self.map_pb.lanes], dtype=int)
+        self.road_ids = np.array([r.id for r in self.map_pb.roads], dtype=int)
 
     def get_current_time(
         self,
@@ -66,6 +75,11 @@ class MossApiEngine:
         self,
     ) -> float:
         return self.moss_engine.get_finished_person_average_traveling_time()
+
+    def get_running_person_average_traveling_time(
+        self,
+    ) -> float:
+        return self.moss_engine.get_running_person_average_traveling_time()
 
     def get_finished_person_count(
         self,
@@ -111,8 +125,10 @@ class MossApiEngine:
     ) -> NDArray:
         fetched_persons = self.moss_engine.fetch_persons()
         has_vehicle_lane_ids = fetched_persons["lane_id"]
-        if len(has_vehicle_lane_ids)>0:
-            lane_counts_array = _populate_lane_counting_dict(has_vehicle_lane_ids,self.lane_ids)
+        if len(has_vehicle_lane_ids) > 0:
+            lane_counts_array = _populate_lane_counting_dict(
+                has_vehicle_lane_ids, self.lane_ids
+            )
         else:
             lane_counts_array = np.zeros(len(self.map_pb.lanes), dtype=int)
         return lane_counts_array
@@ -125,16 +141,20 @@ class MossApiEngine:
             speed_threshold, distance_to_end
         )
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
-        if len(cnt_dict)>0:
-            lane_lookup_array = _populate_lookup_array([(k,v) for k,v in cnt_dict.items()],lane_lookup_array)
+        if len(cnt_dict) > 0:
+            lane_lookup_array = _populate_lookup_array(
+                [(k, v) for k, v in cnt_dict.items()], lane_lookup_array
+            )
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
     def get_lane_waiting_vehicle_counts(self, speed_threshold: float = 0.1) -> NDArray:
         cnt_dict = self.moss_engine.get_lane_waiting_vehicle_counts(speed_threshold)
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=int)
-        if len(cnt_dict)>0:
-            lane_lookup_array = _populate_lookup_array([(k,v) for k,v in cnt_dict.items()],lane_lookup_array)
+        if len(cnt_dict) > 0:
+            lane_lookup_array = _populate_lookup_array(
+                [(k, v) for k, v in cnt_dict.items()], lane_lookup_array
+            )
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
@@ -309,3 +329,32 @@ class MossApiEngine:
         self,
     ) -> int:
         return self.moss_engine.junction_count
+
+    def set_road_lane_plan_batch(
+        self, road_indices: list[int], plan_indices: list[int]
+    ):
+        self.moss_engine.set_road_lane_plan_batch(road_indices, plan_indices)
+
+    def get_running_person_count(
+        self,
+    ) -> int:
+        return self.moss_engine.get_running_person_count()
+
+    def get_road_vehicle_counts(
+        self,
+    ) -> NDArray:
+        road_counting_dict = self.moss_engine.get_road_vehicle_counts()
+        return np.array([road_counting_dict[rid] for rid in self.road_ids])
+
+    def set_person_enable(self, person_index: int, enable: bool):
+        self.moss_engine.set_person_enable(person_index, enable)
+
+    def set_person_enable_batch(
+        self, person_indices: list[int], enable: Union[bool, list[bool]]
+    ):
+        self.moss_engine.set_person_enable_batch(person_indices, enable)
+
+    def fetch_persons(
+        self,
+    ) -> dict[str, NDArray]:
+        return self.moss_engine.fetch_persons()

@@ -11,6 +11,7 @@ from eGCN_ppo import Agent as eGCN_agent
 from moss import Engine, TlPolicy, Verbosity
 from mosstool.type import Lane, LaneType, Map, Person, Persons
 from tqdm import tqdm
+from utils.moss_engine import MossApiEngine
 
 
 class VehiclePolicy(Enum):
@@ -88,7 +89,7 @@ class Env:
         ]
         self.persons.sort(key=lambda x: -x[0])
         self._persons = self.persons[:]
-        self.eng = Engine(
+        self.moss_eng = Engine(
             name="CongestionPricing",
             map_file=map_file,
             person_file=person_file,
@@ -96,14 +97,15 @@ class Env:
             verbose_level=Verbosity.NO_OUTPUT,
             device=device,
         )
-        self.eng.set_tl_policy_batch(
+        self.moss_eng.set_tl_policy_batch(
             [i for i in range(self.eng.junction_count)], TlPolicy.FIXED_TIME
         )
-        self.eng.set_tl_duration_batch([i for i in range(self.eng.junction_count)], 30)
+        self.moss_eng.set_tl_duration_batch([i for i in range(self.eng.junction_count)], 30)
         # 全部车辆设为禁行 后续放行
-        self.eng.set_person_enable_batch(
+        self.moss_eng.set_person_enable_batch(
             [i for i in range(self.eng.person_count)], False
         )
+        self.eng = MossApiEngine(self.moss_eng)
         self.road_prices = np.zeros(len(self.map.roads))
         l = np.array([map_lanes_dict[r.lane_ids[0]].length for r in self.map.roads])
         self.road_fuel_cost = l * fuel_cost_weight
@@ -123,17 +125,17 @@ class Env:
             for l in self.map.lanes
         ]
         self.vehicle_enter_time = np.zeros(self.eng.person_count)
-        fetched_persons = self.eng.fetch_persons()
-        print(len(fetched_persons["id"]),len(fetched_persons["lane_id"]),len(set(fetched_persons["id"])),len(set(fetched_persons["lane_id"])),len(all_person_ids))
-        assert len(fetched_persons["id"])==len(all_person_ids),f"invalid person in {person_file}!"
-        _person_id_2_pb_index:dict[int,int] = {person_id:pb_index for pb_index,person_id in enumerate(all_person_ids)}
-        self.pb_index_2_moss_index:dict[int,int] = {_person_id_2_pb_index[person_id]:moss_index for moss_index,person_id in enumerate(fetched_persons["id"])}
-        # FIXME:由于每个id出现三次 这个映射用不了
-        self.moss_indices:list[int] = [self.pb_index_2_moss_index[i] for i in range(len(all_person_ids))] 
-        # 和pb一致的person排列顺序
-        self.vehicle_lane = np.array(
-            fetched_persons["lane_id"]
-        )[self.moss_indices]
+        # fetched_persons = self.eng.fetch_persons()
+        # print(len(fetched_persons["id"]),len(fetched_persons["lane_id"]),len(set(fetched_persons["id"])),len(set(fetched_persons["lane_id"])),len(all_person_ids))
+        # assert len(fetched_persons["id"])==len(all_person_ids),f"invalid person in {person_file}!"
+        # _person_id_2_pb_index:dict[int,int] = {person_id:pb_index for pb_index,person_id in enumerate(all_person_ids)}
+        # self.pb_index_2_moss_index:dict[int,int] = {_person_id_2_pb_index[person_id]:moss_index for moss_index,person_id in enumerate(fetched_persons["id"])}
+        # # FIXME:由于每个id出现三次 这个映射用不了
+        # self.moss_indices:list[int] = [self.pb_index_2_moss_index[i] for i in range(len(all_person_ids))] 
+        # # 和pb一致的person排列顺序
+        # self.vehicle_lane = np.array(
+        #     fetched_persons["lane_id"]
+        # )[self.moss_indices]
         self._reset_id = self.eng.make_checkpoint()
         self.metrics = None
         self.obs_size = (self.eng.road_count, 4)
@@ -151,7 +153,7 @@ class Env:
         self.road_prices[:] = 0
         for i in self.road_travel_time:
             i.clear()
-        self.eng.restore_checkpoint(self._reset_id)
+        self.eng.reset(self._reset_id)
 
     def _step(self):
         # 处理agent，到时间则放行
@@ -169,14 +171,14 @@ class Env:
                 for (_, a, b), (_, r) in zip(ic, irs):
                     _LOG.append([self.time, a, b, len(r)])
                 choice = min(ic, key=lambda x: x[1] + x[2])[0]
-            choice = self.pb_index_2_moss_index[choice]
+            # choice = self.pb_index_2_moss_index[choice]
             # 放行指定车辆
             self.eng.set_person_enable(choice, True)
         # 处理road，记录平均通行时间
         fetched_persons = self.eng.fetch_persons()
         vl = np.array(
             fetched_persons["lane_id"]
-        )[self.moss_indices]
+        )
         mask = vl != self.vehicle_lane
         if np.any(mask):
             for i, lane, t in zip(
@@ -273,14 +275,12 @@ class Env:
 
     def get_obs(self):
         # 观测值为道路的车辆数
-        c_dict = self.eng.get_road_vehicle_counts()
-        c = np.array([c_dict.get(i,0) for i in self.all_road_ids])
+        c = self.eng.get_road_vehicle_counts()
         return c / 100
 
     def observe(self):
         # 用于我们PPO训练的观测值
-        c_dict = self.eng.get_road_vehicle_counts()
-        c = np.array([c_dict.get(i,0) for i in self.all_road_ids])
+        c = self.eng.get_road_vehicle_counts()
         return np.stack(
             [
                 np.minimum(c / 200, 1) * NN_INPUT_SCALER,

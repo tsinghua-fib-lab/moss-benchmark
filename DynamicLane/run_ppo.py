@@ -15,6 +15,7 @@ from torch import nn, optim
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter  # type: ignore
 from tqdm import tqdm
+from utils.moss_engine import MossApiEngine
 
 NN_INPUT_SCALER = 5
 
@@ -108,14 +109,15 @@ class Env:
     ):
         self.log_dir = log_dir
         self.max_veh_cnt = max_veh_cnt
-        self.eng = eng = get_engine(
+        self.moss_eng = get_engine(
             map_file=f"{data_path}/map.bin",
             person_file=f"{data_path}/agents.bin",
             start_step=start_step,
             device = device,
         )
         # 计算观测车道
-        M: Map = eng.get_map(dict_return=False)  # type:ignore
+        self.eng = MossApiEngine(self.moss_eng)
+        M: Map = self.moss_eng.get_map(dict_return=False)  # type:ignore
         map_lanes_dict: dict[int, Lane] = {i.id: i for i in M.lanes}
         all_lane_ids: list[int] = [i.id for i in M.lanes]
         all_road_ids: list[int] = [i.id for i in M.roads]
@@ -194,20 +196,12 @@ class Env:
         return np.minimum(self.max_veh_cnt, cnt) / self.max_veh_cnt * NN_INPUT_SCALER
 
     def reset(self):
-        self.eng.restore_checkpoint(self._cid)
+        self.eng.reset(self._cid)
         self.road_plan_ids[:] = 0
 
     def observe(self):
-        fetched_persons = self.eng.fetch_persons()
-        _lane_vehicle_dict = {
-            lid: pid
-            for pid, lid in zip(fetched_persons["id"], fetched_persons["lane_id"])
-        }
-        c1 = np.array([_lane_vehicle_dict[lid] for lid in self.all_lane_ids])[
-            self.l_ids
-        ]
-        c2_dict = self.eng.get_lane_waiting_at_end_vehicle_counts(distance_to_end=150)
-        c2 = np.array([c2_dict[lid] for lid in self.all_lane_ids])[self.l_ids]
+        c1 = self.eng.get_lane_vehicle_counts()[self.l_ids]
+        c2 = self.eng.get_lane_waiting_at_end_vehicle_counts(distance_to_end=150)
         obs_1 = np.stack(
             [
                 self._clip_veh_cnt(c1),
