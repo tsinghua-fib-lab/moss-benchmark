@@ -11,12 +11,12 @@ from numba import njit
 
 from .decorators import timing_decorator
 @njit
-def _populate_lookup_array(cnt_dict_items, lane_lookup_array):
+def _populate_lookup_array(cnt_dict_items:list[tuple[int,int]], lane_lookup_array:np.ndarray):
     for lid, v in cnt_dict_items:
         lane_lookup_array[lid] = v
     return lane_lookup_array
 @njit
-def _populate_lane_counting_dict(has_vehicle_lane_ids, lane_counting_dict,lane_ids):
+def _populate_lane_counting_dict(has_vehicle_lane_ids:list[int], lane_counting_dict:dict[int,int],lane_ids:list[int]):
     for lid in has_vehicle_lane_ids:
         lane_counting_dict[lid]+=1
     return [lane_counting_dict[lid] for lid in lane_ids]
