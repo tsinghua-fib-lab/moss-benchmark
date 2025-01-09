@@ -1,6 +1,6 @@
 import math
 from collections import defaultdict
-
+from decorators import timing_decorator
 import numpy as np
 import pycityproto.city.map.v2.light_pb2 as lightv2
 import pycityproto.city.map.v2.map_pb2 as mapv2
@@ -88,7 +88,7 @@ class MossApiEngine:
         self,
     ) -> NDArray[np.float32]:
         return np.array([l.length for l in self.map_pb.lanes], dtype=np.float32)
-
+    @timing_decorator
     def get_lane_vehicle_counts(
         self,
     ) -> NDArray:
@@ -97,7 +97,7 @@ class MossApiEngine:
         for lid in fetched_persons["lane_id"]:
             lane_counting_dict[lid] += 1
         return np.array([lane_counting_dict[l.id] for l in self.map_pb.lanes], dtype=int)
-
+    @timing_decorator
     def get_lane_waiting_at_end_vehicle_counts(
         self, speed_threshold: float = 0.1, distance_to_end: float = 100
     ) -> NDArray:  # type:ignore
@@ -109,14 +109,14 @@ class MossApiEngine:
             cnt,
             dtype=int,
         )
-
+    @timing_decorator
     def get_lane_waiting_vehicle_counts(self, speed_threshold: float = 0.1) -> NDArray:
         cnt_dict = self.moss_engine.get_lane_waiting_vehicle_counts(speed_threshold)
         return np.array(
             [cnt_dict.get(l.id,0) for l in self.map_pb.lanes],
             dtype=int,
         )
-
+    @timing_decorator
     def set_tl_phase_batch(self, junction_indices: list[int], phase_indices: list[int]):
         self.moss_engine.set_tl_phase_batch(junction_indices, phase_indices)
 
