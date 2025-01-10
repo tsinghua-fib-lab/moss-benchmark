@@ -12,6 +12,30 @@ from numpy.typing import NDArray
 
 from .decorators import timing_decorator
 
+
+@njit
+def _test_waiting_at_lane(
+    enable: np.ndarray,
+    status: np.ndarray,
+    lane_id: np.ndarray,
+    lane_length_array:np.ndarray,
+    v:np.ndarray,
+    s:np.ndarray,
+    speed_threshold:float,
+    distance_to_end:float
+):
+        filter = (enable == 1) & (status == 2) & (v < speed_threshold)
+        filtered_lane_id = lane_id[filter]
+        filtered_s = s[filter]
+        # find the distance to the end of the lane
+        lane_ids_for_count = []
+        for i, s in zip(filtered_lane_id, filtered_s):
+            if lane_length_array[i] - s < distance_to_end:
+                lane_ids_for_count.append(i)
+        # count for the lane id
+        unique_lane_ids, unique_lane_counts= np.unique(lane_ids_for_count, return_counts=True)
+        return unique_lane_ids, unique_lane_counts
+
 @njit
 def _populate_lookup_array(
     unique_lane_ids: np.ndarray,
@@ -60,6 +84,8 @@ class MossApiEngine:
         # lane look up
         self.lane_ids = np.array([l.id for l in self.map_pb.lanes], dtype=int)
         self.road_ids = np.array([r.id for r in self.map_pb.roads], dtype=int)
+        # lane length
+        self.lane_length_array = np.array([l.length for l in self.map_pb.lanes], dtype=np.float32)
 
     def get_current_time(
         self,
@@ -431,3 +457,32 @@ class MossApiEngine:
         flag: bool,
     ):
         self.moss_engine.set_lane_restriction(lane_index, flag)
+
+
+    @timing_decorator
+    def get_lane_waiting_at_end_vehicle_counts_whole_jit(
+        self, speed_threshold: float = 0.1, distance_to_end: float = 100
+    ) -> NDArray:
+        persons = self.fetch_persons(["enable", "lane_id", "status", "v", "s"])
+        enable = persons["enable"]
+        lane_id = persons["lane_id"]
+        status = persons["status"]
+        v = persons["v"]
+        s = persons["s"]
+        unique_lane_ids,unique_lane_counts = _test_waiting_at_lane(
+            enable=enable,
+            status=status,
+            lane_id=lane_id,
+            lane_length_array=self.lane_length_array,
+            v = v,
+            s = s,
+            speed_threshold=speed_threshold,
+            distance_to_end=distance_to_end,
+        )
+        lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=np.int32)
+        if len(unique_lane_ids) > 0:
+            lane_lookup_array = _populate_lookup_array(
+                unique_lane_ids, unique_lane_counts, lane_lookup_array
+            )
+            # lane_lookup_array[unique_lane_ids] = unique_lane_counts
+        return lane_lookup_array[self.lane_ids]
