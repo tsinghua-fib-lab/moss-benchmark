@@ -125,7 +125,7 @@ class Env:
             for l in self.map.lanes
         ]
         self.vehicle_enter_time = np.zeros(self.eng.person_count)
-        # fetched_persons = self.eng.fetch_persons()
+        # fetched_persons = self.eng.fetch_persons(["id","lane_id"])
         # print(len(fetched_persons["id"]),len(fetched_persons["lane_id"]),len(set(fetched_persons["id"])),len(set(fetched_persons["lane_id"])),len(all_person_ids))
         # assert len(fetched_persons["id"])==len(all_person_ids),f"invalid person in {person_file}!"
         # _person_id_2_pb_index:dict[int,int] = {person_id:pb_index for pb_index,person_id in enumerate(all_person_ids)}
