@@ -124,7 +124,7 @@ class MossApiEngine:
     def get_lane_vehicle_counts(
         self,
     ) -> NDArray:
-        fetched_persons = self.moss_engine.fetch_persons()
+        fetched_persons = self.moss_engine.fetch_persons(["lane_id"])
         has_vehicle_lane_ids = fetched_persons["lane_id"]
         if len(has_vehicle_lane_ids) > 0:
             lane_counts_array = _populate_lane_counting_dict(
