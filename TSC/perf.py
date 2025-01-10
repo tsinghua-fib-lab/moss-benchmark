@@ -165,6 +165,7 @@ class Env:
         c2 = self.eng.get_lane_waiting_at_end_vehicle_counts(distance_to_end=150)
         c2 = self.eng.get_lane_waiting_at_end_vehicle_counts_jit(distance_to_end=150)
         c2 = self.eng.get_lane_waiting_at_end_vehicle_counts_whole_jit(distance_to_end=150)
+        c3 = self.eng.get_road_vehicle_counts()
         obs = np.stack(
             [
                 self._clip_veh_cnt(c1),

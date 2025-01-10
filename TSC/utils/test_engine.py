@@ -33,26 +33,19 @@ def _test_waiting_at_lane(
             if lane_length_array[i] - s < distance_to_end:
                 lane_ids_for_count.append(i)
         return lane_ids_for_count
-
 @njit
-def _populate_lookup_array(
-    unique_lane_ids: np.ndarray,
-    unique_lane_counts: np.ndarray,
-    lane_lookup_array: np.ndarray,
+def _populate_unique_counts(
+    unique_ids: np.ndarray,
+    unique_counts: np.ndarray,
+    lookup_array: np.ndarray,
+    id_offset: int,
 ):
-    lane_lookup_array[unique_lane_ids] = unique_lane_counts
-    return lane_lookup_array
+    if id_offset > 0:
+        unique_ids -= id_offset
+    lookup_array[unique_ids] = unique_counts
+    return lookup_array
 
 
-@njit
-def _populate_lane_counting_dict(
-    has_vehicle_lane_ids: np.ndarray,
-    lane_ids: np.ndarray,
-):
-    lane_counting_dict: dict[int, int] = {lid: 0 for lid in lane_ids}
-    for lid in has_vehicle_lane_ids:
-        lane_counting_dict[lid] += 1
-    return np.array([lane_counting_dict[lid] for lid in lane_ids], dtype=np.int32)
 
 
 def get_moss_engine(
@@ -171,8 +164,9 @@ class MossApiEngine:
         )
         lane_counts_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=np.int32)
         if len(has_vehicle_lane_ids) > 0:
-            lane_counts_array = _populate_lookup_array(unique_lane_ids, unique_lane_counts,lane_counts_array)
-            # lane_counts_array[unique_lane_ids] = unique_lane_counts
+            lane_counts_array = _populate_unique_counts(
+                unique_lane_ids, unique_lane_counts, lane_counts_array, 0
+            )
         return lane_counts_array[self.lane_ids]
 
     @timing_decorator
@@ -206,8 +200,8 @@ class MossApiEngine:
         print(f"Function 'moss_engine.get_lane_waiting_at_end_vehicle_counts' took {elapsed_time:.9f} seconds to complete.")
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=np.int32)
         if len(unique_lane_ids) > 0:
-            lane_lookup_array = _populate_lookup_array(
-                unique_lane_ids, unique_lane_counts, lane_lookup_array
+            lane_lookup_array = _populate_unique_counts(
+                unique_lane_ids, unique_lane_counts, lane_lookup_array, 0
             )
             # lane_lookup_array[unique_lane_ids] = unique_lane_counts
         return lane_lookup_array[self.lane_ids]
@@ -233,8 +227,8 @@ class MossApiEngine:
         )
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=np.int32)
         if len(unique_lane_ids) > 0:
-            lane_lookup_array = _populate_lookup_array(
-                unique_lane_ids, unique_lane_counts, lane_lookup_array
+            lane_lookup_array = _populate_unique_counts(
+                unique_lane_ids, unique_lane_counts, lane_lookup_array, 0
             )
             # lane_lookup_array[unique_lane_ids] = unique_lane_counts
         return lane_lookup_array[self.lane_ids]
@@ -421,12 +415,17 @@ class MossApiEngine:
         self,
     ) -> int:
         return self.moss_engine.get_running_person_count()
-
+    @timing_decorator
     def get_road_vehicle_counts(
         self,
     ) -> NDArray:
-        road_counting_dict = self.moss_engine.get_road_vehicle_counts()
-        return np.array([road_counting_dict[rid] for rid in self.road_ids])
+        unique_road_ids, unique_road_counts = self.moss_engine.get_road_vehicle_counts()
+        road_counts_array = np.zeros(len(self.map_pb.roads) + 1, dtype=np.int32)
+        if len(unique_road_ids) > 0:
+            road_counts_array = _populate_unique_counts(
+                unique_road_ids, unique_road_counts, road_counts_array, 2_0000_0000
+            )
+        return road_counts_array[: len(self.road_ids)]
 
     def set_person_enable(self, person_index: int, enable: bool):
         self.moss_engine.set_person_enable(person_index, enable)
@@ -481,8 +480,8 @@ class MossApiEngine:
         unique_lane_ids, unique_lane_counts= np.unique(lane_ids_for_count, return_counts=True)
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=np.int32)
         if len(unique_lane_ids) > 0:
-            lane_lookup_array = _populate_lookup_array(
-                unique_lane_ids, unique_lane_counts, lane_lookup_array
+            lane_lookup_array = _populate_unique_counts(
+                unique_lane_ids, unique_lane_counts, lane_lookup_array, 0
             )
             # lane_lookup_array[unique_lane_ids] = unique_lane_counts
         return lane_lookup_array[self.lane_ids]
