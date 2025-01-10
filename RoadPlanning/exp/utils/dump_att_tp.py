@@ -18,7 +18,7 @@ def get_args():
 
 
 args = get_args()
-eng = Engine(
+moss_eng = Engine(
     name=f"RoadPlanning",
     map_file=args.map_path,
     person_file=args.person_path,
@@ -26,12 +26,12 @@ eng = Engine(
     verbose_level=Verbosity.INIT_ONLY,
     device=args.device_id,
 )
-eng.set_tl_duration_batch([i for i in range(eng.junction_count)], 30)  # type:ignore
-eng.set_tl_policy_batch(
-    range(eng.junction_count), TlPolicy.FIXED_TIME  # type:ignore
+moss_eng.set_tl_duration_batch([i for i in range(moss_eng.junction_count)], 30)
+moss_eng.set_tl_policy_batch(
+    [i for i in range(moss_eng.junction_count)], TlPolicy.FIXED_TIME
 )
-eng.next_step(n=3600 * 6)
-att = eng.get_departed_person_average_traveling_time()
-tp = eng.get_finished_person_count()
+moss_eng.next_step(n=3600 * 6)
+att = moss_eng.get_departed_person_average_traveling_time()
+tp = moss_eng.get_finished_person_count()
 pickle.dump(att, open(args.output_path, "wb"))
 pickle.dump(tp, open(args.tp_output_path, "wb"))

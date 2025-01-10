@@ -379,3 +379,8 @@ class MossApiEngine:
         flag: bool,
     ):
         self.moss_engine.set_lane_restriction(lane_index, flag)
+
+    def fetch_person_vehicle_lane(
+        self,
+    ) -> np.ndarray:
+        return self.moss_engine.fetch_persons(["lane_id"])["lane_id"]

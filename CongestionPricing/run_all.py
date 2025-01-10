@@ -22,7 +22,6 @@ class VehiclePolicy(Enum):
 
 _LOG = []
 NN_INPUT_SCALER = 5
-ROAD_ID_START = 2_0000_0000
 JUNCTION_ID_START = 3_0000_0000
 
 
@@ -62,9 +61,7 @@ class Env:
         map_roads_dict: dict[int, Any] = {i.id: i for i in self.map.roads}
         self.map_lanes_dict = map_lanes_dict
         self.map_roads_dict = map_roads_dict
-        self.all_road_ids: list[int] = [
-            i + ROAD_ID_START for i in range(len(map_roads_dict))
-        ]
+        self.all_road_ids: list[int] = [i.id for i in self.map.roads]
         all_person_ids: list[int] = [p.id for p in persons]
         self.road_map = {rid: idx for idx, rid in enumerate(self.all_road_ids)}
         self.persons = [
@@ -100,7 +97,9 @@ class Env:
         self.moss_eng.set_tl_policy_batch(
             [i for i in range(self.eng.junction_count)], TlPolicy.FIXED_TIME
         )
-        self.moss_eng.set_tl_duration_batch([i for i in range(self.eng.junction_count)], 30)
+        self.moss_eng.set_tl_duration_batch(
+            [i for i in range(self.eng.junction_count)], 30
+        )
         # 全部车辆设为禁行 后续放行
         self.moss_eng.set_person_enable_batch(
             [i for i in range(self.eng.person_count)], False
@@ -125,17 +124,20 @@ class Env:
             for l in self.map.lanes
         ]
         self.vehicle_enter_time = np.zeros(self.eng.person_count)
-        # fetched_persons = self.eng.fetch_persons(["id","lane_id"])
-        # print(len(fetched_persons["id"]),len(fetched_persons["lane_id"]),len(set(fetched_persons["id"])),len(set(fetched_persons["lane_id"])),len(all_person_ids))
-        # assert len(fetched_persons["id"])==len(all_person_ids),f"invalid person in {person_file}!"
-        # _person_id_2_pb_index:dict[int,int] = {person_id:pb_index for pb_index,person_id in enumerate(all_person_ids)}
-        # self.pb_index_2_moss_index:dict[int,int] = {_person_id_2_pb_index[person_id]:moss_index for moss_index,person_id in enumerate(fetched_persons["id"])}
-        # # FIXME:由于每个id出现三次 这个映射用不了
-        # self.moss_indices:list[int] = [self.pb_index_2_moss_index[i] for i in range(len(all_person_ids))] 
-        # # 和pb一致的person排列顺序
-        # self.vehicle_lane = np.array(
-        #     fetched_persons["lane_id"]
-        # )[self.moss_indices]
+        fetched_persons = self.eng.fetch_persons(["id", "lane_id"])
+        # For performance considerations,
+        # we assume that there is no invalid person in MOSS, which can lead to a mismatch between the person index in local file and the person index in MOSS.
+        # The validity of this assumption depends on the following assert.
+        assert len(fetched_persons["id"]) == len(
+            all_person_ids
+        ), f"invalid person in {person_file}!"
+        for index, (pb_person_id, fetched_person_id) in enumerate(
+            zip(all_person_ids, fetched_persons["id"])
+        ):
+            assert (
+                pb_person_id == fetched_person_id
+            ), f"Inconsistent person id in index {index}!"
+        self.vehicle_lane = self.eng.fetch_person_vehicle_lane()
         self._reset_id = self.eng.make_checkpoint()
         self.metrics = None
         self.obs_size = (self.eng.road_count, 4)
@@ -171,14 +173,10 @@ class Env:
                 for (_, a, b), (_, r) in zip(ic, irs):
                     _LOG.append([self.time, a, b, len(r)])
                 choice = min(ic, key=lambda x: x[1] + x[2])[0]
-            # choice = self.pb_index_2_moss_index[choice]
             # 放行指定车辆
             self.eng.set_person_enable(choice, True)
         # 处理road，记录平均通行时间
-        fetched_persons = self.eng.fetch_persons()
-        vl = np.array(
-            fetched_persons["lane_id"]
-        )
+        vl = self.eng.fetch_person_vehicle_lane()
         mask = vl != self.vehicle_lane
         if np.any(mask):
             for i, lane, t in zip(
