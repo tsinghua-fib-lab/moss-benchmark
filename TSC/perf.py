@@ -15,7 +15,7 @@ from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter  # type:ignore
 from tqdm import tqdm
 
-from utils.test_engine import MossApiEngine
+from utils.moss_engine import MossApiEngine
 
 NN_INPUT_SCALER = 5
 
@@ -161,10 +161,7 @@ class Env:
 
     def observe(self):
         c1 = self.eng.get_lane_vehicle_counts()
-        c1 = self.eng.get_lane_vehicle_counts_jit()
         c2 = self.eng.get_lane_waiting_at_end_vehicle_counts(distance_to_end=150)
-        c2 = self.eng.get_lane_waiting_at_end_vehicle_counts_jit(distance_to_end=150)
-        c2 = self.eng.get_lane_waiting_at_end_vehicle_counts_whole_jit(distance_to_end=150)
         c3 = self.eng.get_road_vehicle_counts()
         obs = np.stack(
             [
