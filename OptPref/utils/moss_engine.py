@@ -12,26 +12,25 @@ from numpy.typing import NDArray
 
 from .decorators import timing_decorator
 
+# @njit
+# def _populate_lookup_array(
+#     unique_lane_ids: np.ndarray,
+#     unique_lane_counts: np.ndarray,
+#     lane_lookup_array: np.ndarray,
+# ):
+#     lane_lookup_array[unique_lane_ids] = unique_lane_counts
+#     return lane_lookup_array
 
-@njit
-def _populate_lookup_array(
-    unique_lane_ids: np.ndarray,
-    unique_lane_counts: np.ndarray,
-    lane_lookup_array: np.ndarray,
-):
-    lane_lookup_array[unique_lane_ids] = unique_lane_counts
-    return lane_lookup_array
 
-
-@njit
-def _populate_lane_counting_dict(
-    has_vehicle_lane_ids: np.ndarray,
-    lane_ids: np.ndarray,
-):
-    lane_counting_dict: dict[int, int] = {lid: 0 for lid in lane_ids}
-    for lid in has_vehicle_lane_ids:
-        lane_counting_dict[lid] += 1
-    return np.array([lane_counting_dict[lid] for lid in lane_ids], dtype=np.int32)
+# @njit
+# def _populate_lane_counting_dict(
+#     has_vehicle_lane_ids: np.ndarray,
+#     lane_ids: np.ndarray,
+# ):
+# lane_counting_dict: dict[int, int] = {lid: 0 for lid in lane_ids}
+# for lid in has_vehicle_lane_ids:
+#     lane_counting_dict[lid] += 1
+# return np.array([lane_counting_dict[lid] for lid in lane_ids], dtype=np.int32)
 
 
 def get_moss_engine(
@@ -126,13 +125,18 @@ class MossApiEngine:
     ) -> NDArray:
         fetched_persons = self.moss_engine.fetch_persons(["lane_id"])
         has_vehicle_lane_ids = fetched_persons["lane_id"]
+        unique_lane_ids, unique_lane_counts = np.unique(
+            has_vehicle_lane_ids, return_counts=True
+        )
+        lane_counts_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=np.int32)
         if len(has_vehicle_lane_ids) > 0:
-            lane_counts_array = _populate_lane_counting_dict(
-                has_vehicle_lane_ids, self.lane_ids
-            )
+            # lane_counts_array = _populate_lane_counting_dict(
+            #     has_vehicle_lane_ids, self.lane_ids
+            # )
+            lane_counts_array[unique_lane_ids] = unique_lane_counts
         else:
             lane_counts_array = np.zeros(len(self.map_pb.lanes), dtype=int)
-        return lane_counts_array
+        return lane_counts_array[self.lane_ids]
 
     @timing_decorator
     def get_lane_waiting_at_end_vehicle_counts(
@@ -145,9 +149,10 @@ class MossApiEngine:
         )
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=np.int32)
         if len(unique_lane_ids) > 0:
-            lane_lookup_array = _populate_lookup_array(
-                unique_lane_ids, unique_lane_counts, lane_lookup_array
-            )
+            # lane_lookup_array = _populate_lookup_array(
+            #     unique_lane_ids, unique_lane_counts, lane_lookup_array
+            # )
+            lane_lookup_array[unique_lane_ids] = unique_lane_counts
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
@@ -157,9 +162,10 @@ class MossApiEngine:
         )
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=np.int32)
         if len(unique_lane_ids) > 0:
-            lane_lookup_array = _populate_lookup_array(
-                unique_lane_ids, unique_lane_counts, lane_lookup_array
-            )
+            # lane_lookup_array = _populate_lookup_array(
+            #     unique_lane_ids, unique_lane_counts, lane_lookup_array
+            # )
+            lane_lookup_array[unique_lane_ids] = unique_lane_counts
         return lane_lookup_array[self.lane_ids]
 
     @timing_decorator
@@ -360,7 +366,9 @@ class MossApiEngine:
         self.moss_engine.set_person_enable_batch(person_indices, enable)
 
     # ATTENTION:默认值不是空list
-    def fetch_persons(self, fields: list[str] = ["id","lane_id","total_distance"]) -> dict[str, NDArray]:
+    def fetch_persons(
+        self, fields: list[str] = ["id", "lane_id", "total_distance"]
+    ) -> dict[str, NDArray]:
         return self.moss_engine.fetch_persons(fields)
 
     def set_road_lane_plan(
