@@ -32,9 +32,7 @@ def _test_waiting_at_lane(
         for i, s in zip(filtered_lane_id, filtered_s):
             if lane_length_array[i] - s < distance_to_end:
                 lane_ids_for_count.append(i)
-        # count for the lane id
-        unique_lane_ids, unique_lane_counts= np.unique(lane_ids_for_count, return_counts=True)
-        return unique_lane_ids, unique_lane_counts
+        return lane_ids_for_count
 
 @njit
 def _populate_lookup_array(
@@ -469,7 +467,7 @@ class MossApiEngine:
         status = persons["status"]
         v = persons["v"]
         s = persons["s"]
-        unique_lane_ids,unique_lane_counts = _test_waiting_at_lane(
+        lane_ids_for_count = _test_waiting_at_lane(
             enable=enable,
             status=status,
             lane_id=lane_id,
@@ -479,6 +477,8 @@ class MossApiEngine:
             speed_threshold=speed_threshold,
             distance_to_end=distance_to_end,
         )
+        # count for the lane id
+        unique_lane_ids, unique_lane_counts= np.unique(lane_ids_for_count, return_counts=True)
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=np.int32)
         if len(unique_lane_ids) > 0:
             lane_lookup_array = _populate_lookup_array(
