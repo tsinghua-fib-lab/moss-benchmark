@@ -94,6 +94,7 @@ class Env:
             verbose_level=Verbosity.NO_OUTPUT,
             device=device,
         )
+        self.eng = MossApiEngine(self.moss_eng)
         self.moss_eng.set_tl_policy_batch(
             [i for i in range(self.eng.junction_count)], TlPolicy.FIXED_TIME
         )
@@ -104,7 +105,6 @@ class Env:
         self.moss_eng.set_person_enable_batch(
             [i for i in range(self.eng.person_count)], False
         )
-        self.eng = MossApiEngine(self.moss_eng)
         self.road_prices = np.zeros(len(self.map.roads))
         l = np.array([map_lanes_dict[r.lane_ids[0]].length for r in self.map.roads])
         self.road_fuel_cost = l * fuel_cost_weight
