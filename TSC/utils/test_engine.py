@@ -421,6 +421,7 @@ class MossApiEngine:
     ) -> NDArray:
         unique_road_ids, unique_road_counts = self.moss_engine.get_road_vehicle_counts()
         road_counts_array = np.zeros(len(self.map_pb.roads) + 1, dtype=np.int32)
+        print("unique_road_ids:",len(unique_road_ids))
         if len(unique_road_ids) > 0:
             road_counts_array = _populate_unique_counts(
                 unique_road_ids, unique_road_counts, road_counts_array, 2_0000_0000
