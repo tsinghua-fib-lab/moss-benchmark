@@ -1,7 +1,7 @@
 import math
 from collections import defaultdict
 from typing import Any, Union
-
+import time
 import numpy as np
 import pycityproto.city.map.v2.light_pb2 as lightv2
 import pycityproto.city.map.v2.map_pb2 as mapv2
@@ -171,11 +171,15 @@ class MossApiEngine:
     def get_lane_waiting_at_end_vehicle_counts_jit(
         self, speed_threshold: float = 0.1, distance_to_end: float = 100
     ) -> NDArray:
-        unique_lane_ids, unique_lane_counts = (
+        start_time = time.time()
+        unique_lane_ids, unique_lane_counts = (           
             self.moss_engine.get_lane_waiting_at_end_vehicle_counts(
                 speed_threshold, distance_to_end
             )
         )
+        end_time = time.time()   
+        elapsed_time = end_time - start_time      
+        print(f"Function 'moss_engine.get_lane_waiting_at_end_vehicle_counts' took {elapsed_time:.9f} seconds to complete.")
         lane_lookup_array = np.zeros(len(self.map_pb.lanes) + 1, dtype=np.int32)
         if len(unique_lane_ids) > 0:
             lane_lookup_array = _populate_lookup_array(
