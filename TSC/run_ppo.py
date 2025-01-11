@@ -86,7 +86,6 @@ def parse_args():
     parser.add_argument(
         "--save-interval", type=int, default=1000, help="checkpoint save interval"
     )
-    parser.add_argument("--early_stopping_rounds", type=int, default=50)
 
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--eval", action="store_true")
