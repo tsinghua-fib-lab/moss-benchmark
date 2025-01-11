@@ -18,7 +18,7 @@ PART3_CITIES="france_paris_s us_newyork_s china_beijing_c "
 
 PART4_CITIES="china_shanghai_c france_paris_c us_newyork_c"
 
-for city in $PART1_CITIES; do
+for city in $PART3_CITIES; do
     for algo in ft mp ppo mplight efficient_mplight advanced_colight advanced_mplight colight frap; do
         # train for 4 hours
         # simulate from 7:00 to 10:00, i.e. start at 7*3600=25200 seconds and simulet 3*3600=10800 steps
