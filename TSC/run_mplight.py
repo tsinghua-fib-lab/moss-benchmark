@@ -565,8 +565,8 @@ def main():
                     action_exploit = torch.argmax(m, dim=-1).cpu().numpy()
                 action = np.choose(
                     np.random.uniform(size=args.num_agents) < eps,
-                    [action_explore, action_exploit],
-                )  # type:ignore
+                    [action_explore, action_exploit],  # type:ignore
+                )
             action_one_hot = np.zeros((args.num_agents, env.max_action_size))
             for i, j in enumerate(env.action_sizes):
                 action_one_hot[i, action[i]] = 1
@@ -602,6 +602,13 @@ def main():
                     "metric/Throughput_inside", info["Throughput_inside"], step
                 )
                 aql = 0
+                currentATT = info["ATT"]
+                if step >= args.training_start:
+                    if currentATT < bestATT - 1e-6:
+                        bestATT = currentATT
+                        patience_counter = 0
+                    else:
+                        patience_counter += 1
             writer.add_scalar("metric/Reward", info["reward"], step)
             replay.add(
                 obs,
@@ -618,12 +625,6 @@ def main():
             obs = next_obs
             neighbor_obs = next_neighbor_obs
             if step >= args.training_start and step % args.training_freq == 0:
-                currentATT = info["ATT"]
-                if currentATT < bestATT:
-                    bestATT = currentATT
-                    patience_counter = 0
-                else:
-                    patience_counter += 1
                 batch_size = basic_batch_size
                 update_times = basic_update_times
 

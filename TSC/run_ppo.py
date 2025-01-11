@@ -437,10 +437,16 @@ def main():
                         "metric/ATT-f", info["ATT-f"], global_step  # type:ignore
                     )
                     writer.add_scalar(
-                        "metric/Throughput",
+                        "metric/Throughput",  # type:ignore
                         info["Throughput"],
                         global_step,  # type:ignore
                     )
+                    currentATT = info["ATT-d"]  # type:ignore
+                    if currentATT < bestATT - 1e-6:
+                        bestATT = currentATT
+                        patience_counter = 0
+                    else:
+                        patience_counter += 1
                 writer.add_scalar(
                     "metric/Reward", info["reward"], global_step  # type:ignore
                 )
@@ -630,14 +636,6 @@ def main():
                     f.write(msg)
             # if global_step >= next_save_step:
             #     torch.save(agent.state_dict(), f'{path}/ckpts/{global_step}.pt')
-            # if global_step % args.training_freq == 0:
-            if True:
-                currentATT = info["ATT-d"]  # type:ignore
-                if currentATT < bestATT:
-                    bestATT = currentATT
-                    patience_counter = 0
-                else:
-                    patience_counter += 1
     writer.close()
 
 

@@ -713,6 +713,13 @@ def main():
                 writer.add_scalar(
                     "metric/Throughput_inside", info["Throughput_inside"], step
                 )
+                currentATT = info["ATT"]
+                if step >= args.training_start:
+                    if currentATT < bestATT - 1e-6:
+                        bestATT = currentATT
+                        patience_counter = 0
+                    else:
+                        patience_counter += 1
             writer.add_scalar("metric/Reward", info["reward"], step)
             replay.add(
                 obs_a,
@@ -729,12 +736,6 @@ def main():
             action_one_hot = next_action_one_hot
 
             if step >= args.training_start and step % args.training_freq == 0:
-                currentATT = info["ATT"]
-                if currentATT < bestATT:
-                    bestATT = currentATT
-                    patience_counter = 0
-                else:
-                    patience_counter += 1
                 k = 1
 
                 batch_size = int(k * basic_batch_size)

@@ -260,6 +260,13 @@ def main():
                     "metric/Throughput_inside", info["Throughput_inside"], step
                 )
                 aql = 0
+                currentATT = info["ATT"]
+                if step >= args.training_start:
+                    if currentATT < bestATT - 1e-6:
+                        bestATT = currentATT
+                        patience_counter = 0
+                    else:
+                        patience_counter += 1
             writer.add_scalar("metric/Reward", info["reward"], step)
             replay.add(
                 obs,
@@ -276,12 +283,6 @@ def main():
             neighbor_obs, neighbor_mask = next_neighbor_obs, next_neighbor_mask
 
             if step >= args.training_start and step % args.training_freq == 0:
-                currentATT = info["ATT"]
-                if currentATT < bestATT:
-                    bestATT = currentATT
-                    patience_counter = 0
-                else:
-                    patience_counter += 1
                 k = 1
 
                 batch_size = int(k * basic_batch_size)

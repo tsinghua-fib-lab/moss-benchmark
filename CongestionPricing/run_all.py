@@ -414,18 +414,17 @@ def main():
         t = time.time()
         for s in tqdm(range(args.reset * args.egcn_train_epochs), ncols=100):
             controller.step()
-            if s >= args.reset and env.metrics is not None:
-                currentATT = env.metrics[3]  # "ATT-d"
-                if currentATT < bestATT:
-                    bestATT = currentATT
-                    patience_counter = 0
-                else:
-                    patience_counter += 1
             if (s + 1) % args.reset == 0:
                 assert env.metrics is not None
                 if patience_counter > args.early_stopping_rounds:
                     # no better result within specific rounds
                     break
+                currentATT = env.metrics[3]  # "ATT-d"
+                if currentATT < bestATT - 1e-6:
+                    bestATT = currentATT
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
                 with open(f"{path}/info.log", "a") as f:
                     f.write(
                         f"{env.metrics[3]:.3f} {env.metrics[1]} {time.time()-t:.3f}\n"
