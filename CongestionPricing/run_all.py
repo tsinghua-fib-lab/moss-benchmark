@@ -357,6 +357,8 @@ def main():
     parser.add_argument(
         "--algo", choices="none random deltatoll eGCN".split(), required=True
     )
+    parser.add_argument("--training_freq", type=int, default=10)
+    parser.add_argument("--early_stopping_rounds", type=int, default=50)
     parser.add_argument("--seed", type=int, default=43)
     parser.add_argument("--interval", type=int, default=20)
     parser.add_argument("--start", type=int, default=0)
@@ -406,13 +408,25 @@ def main():
     if args.algo == "deltatoll":
         controller = DeltaController(env, R=args.dt_R, beta=args.dt_beta, tau=0.2)
     elif args.algo == "eGCN":
+        patience_counter = 0  # early stop
+        bestATT = 1e99
         controller = EGCNController(env, args)
         t = time.time()
         for s in tqdm(range(args.reset * args.egcn_train_epochs), ncols=100):
             controller.step()
+            assert env.metrics is not None
+            if s > args.reset:
+                currentATT = env.metrics[3]  # "ATT-d"
+                if currentATT < bestATT:
+                    bestATT = currentATT
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
             if (s + 1) % args.reset == 0:
+                if patience_counter > args.early_stopping_rounds:
+                    # no better result within specific rounds
+                    break
                 with open(f"{path}/info.log", "a") as f:
-                    assert env.metrics is not None
                     f.write(
                         f"{env.metrics[3]:.3f} {env.metrics[1]} {time.time()-t:.3f}\n"
                     )
