@@ -135,6 +135,7 @@ def main():
     parser.add_argument("--training_start", type=int, default=2000)
     parser.add_argument("--training_freq", type=int, default=10)
     parser.add_argument("--target_freq", type=int, default=100)
+    parser.add_argument("--early_stopping_rounds", type=int, default=50)
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--batchsize", type=int, default=256)
     parser.add_argument("--buffer_size", type=int, default=2048)
@@ -217,8 +218,13 @@ def main():
     basic_batch_size = args.batchsize
     basic_update_times = 1
     replay_max = args.buffer_size
+    patience_counter = 0  # early stop
+    bestATT = 1e99
     with tqdm(range(args.training_step), ncols=100, smoothing=0.1) as bar:
         for step in bar:
+            if patience_counter > args.early_stopping_rounds:
+                # no better result within specific rounds
+                break
             _st = time.time()
             eps = lerp(
                 1, 0.05, step / args.explore_steps
@@ -240,9 +246,9 @@ def main():
                         == 0
                     ] = -1e9
                     action_exploit = torch.argmax(m, dim=-1).cpu().numpy()
-                action = np.choose( # type:ignore
+                action = np.choose(  # type:ignore
                     np.random.uniform(size=args.num_agents) < eps,
-                    [action_explore, action_exploit],# type:ignore
+                    [action_explore, action_exploit],  # type:ignore
                 )
             action_one_hot = np.zeros((args.num_agents, env.max_action_size))
             for i, j in enumerate(env.action_sizes):
@@ -295,6 +301,12 @@ def main():
             obs = next_obs
             neighbor_obs = next_neighbor_obs
             if step >= args.training_start and step % args.training_freq == 0:
+                currentATT = info["ATT"]
+                if currentATT < bestATT:
+                    bestATT = currentATT
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
                 replay_len = replay.len()
                 k = 1 + replay_len / replay_max
 
@@ -359,7 +371,7 @@ def main():
                         opt.zero_grad()
                         loss.backward()
                         opt.step()
-                writer.add_scalar("chart/loss", loss.item(), step)# type:ignore
+                writer.add_scalar("chart/loss", loss.item(), step)  # type:ignore
                 bar.set_description(f'ATT: {info["ATT"]:.3f} TP: {info["Throughput"]} ')
                 if step % args.target_freq == 0:
                     Q_target.load_state_dict(Q.state_dict())

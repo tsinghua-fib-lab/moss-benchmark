@@ -14,7 +14,6 @@ from torch import nn, optim
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter  # type:ignore
 from tqdm import tqdm
-
 from utils.moss_engine import MossApiEngine
 
 NN_INPUT_SCALER = 5
@@ -32,7 +31,9 @@ def parse_args():
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--steps", type=int, default=3600)
     parser.add_argument("--interval", type=int, default=30)
+    parser.add_argument("--training_freq", type=int, default=10)
     parser.add_argument("--mlp", type=str, default="256,256")
+    parser.add_argument("--early_stopping_rounds", type=int, default=50)
 
     parser.add_argument("--total-timesteps", type=int, default=100000000)
     parser.add_argument("--lr", type=float, default=3e-4)
@@ -85,6 +86,7 @@ def parse_args():
     parser.add_argument(
         "--save-interval", type=int, default=1000, help="checkpoint save interval"
     )
+    parser.add_argument("--early_stopping_rounds", type=int, default=50)
 
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--eval", action="store_true")
@@ -104,7 +106,14 @@ def pad(arr, value):
 
 class Env:
     def __init__(
-        self, data_path, start_step, step_size, step_count, log_dir, device,max_veh_cnt=200
+        self,
+        data_path,
+        start_step,
+        step_size,
+        step_count,
+        log_dir,
+        device,
+        max_veh_cnt=200,
     ):
         self.log_dir = log_dir
         self.max_veh_cnt = max_veh_cnt
@@ -369,12 +378,12 @@ def main():
                     next_obs.unsqueeze(0), sample=args.sample, action_only=True
                 )
                 next_obs, reward, done, info = env.step(
-                    action.view(-1).cpu().numpy()   # type:ignore
+                    action.view(-1).cpu().numpy()  # type:ignore
                 )
                 next_obs = torch.Tensor(next_obs).to(device)
             print(
-                f'{info["Throughput"]} {info["ATT-d"]:.1f} {info["ATT-f"]:.1f}' # type:ignore
-            ) 
+                f'{info["Throughput"]} {info["ATT-d"]:.1f} {info["ATT-f"]:.1f}'  # type:ignore
+            )
         return
     optimizer = optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)
     # 每个路口视为1个env，但obs和done是共享的
@@ -394,8 +403,13 @@ def main():
         next_save_step = args.save_interval
     else:
         next_save_step = 1e999
+    patience_counter = 0  # early stop
+    bestATT = 1e99
     with tqdm(range(args.total_timesteps), ncols=90, smoothing=0.1) as bar:
         while global_step < args.total_timesteps:
+            if patience_counter > args.early_stopping_rounds:
+                # no better result within specific rounds
+                break
             _t = time.time()
             for step in range(args.num_steps):
                 obs[step] = next_obs
@@ -424,7 +438,9 @@ def main():
                         "metric/ATT-f", info["ATT-f"], global_step  # type:ignore
                     )
                     writer.add_scalar(
-                        "metric/Throughput", info["Throughput"], global_step  # type:ignore
+                        "metric/Throughput",
+                        info["Throughput"],
+                        global_step,  # type:ignore
                     )
                 writer.add_scalar(
                     "metric/Reward", info["reward"], global_step  # type:ignore
@@ -562,7 +578,7 @@ def main():
 
             writer.add_scalar(
                 "charts/Optimize Time", time.time() - _t, global_step  # type:ignore
-            ) 
+            )
 
             # TRY NOT TO MODIFY: record rewards for plotting purposes
             writer.add_scalar(
@@ -573,7 +589,7 @@ def main():
             )
             writer.add_scalar(
                 "losses/entropy", entropy_loss.item(), global_step  # type:ignore
-            ) 
+            )
             writer.add_scalar(
                 "losses/old_approx_kl", old_approx_kl.item(), global_step  # type:ignore
             )
@@ -615,6 +631,13 @@ def main():
                     f.write(msg)
             # if global_step >= next_save_step:
             #     torch.save(agent.state_dict(), f'{path}/ckpts/{global_step}.pt')
+            if global_step % args.training_freq == 0:
+                currentATT = info["ATT-d"]  # type:ignore
+                if currentATT < bestATT:
+                    bestATT = currentATT
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
     writer.close()
 
 

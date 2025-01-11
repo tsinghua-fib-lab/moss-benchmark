@@ -15,7 +15,6 @@ from mosstool.type import Map
 from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter  # type:ignore
 from tqdm import tqdm
-
 from utils.moss_engine import MossApiEngine
 
 
@@ -29,7 +28,15 @@ def decompose_action(x, sizes):
 
 class Env:
     def __init__(
-        self, data_path, start_step, step_size, step_count, log_dir, reward,device, alpha=0
+        self,
+        data_path,
+        start_step,
+        step_size,
+        step_count,
+        log_dir,
+        reward,
+        device,
+        alpha=0,
     ):
         self.log_dir = log_dir
         self.moss_eng = get_engine(
@@ -579,6 +586,7 @@ def main():
     parser.add_argument("--training_start", type=int, default=2000)
     parser.add_argument("--training_freq", type=int, default=10)
     parser.add_argument("--target_freq", type=int, default=100)
+    parser.add_argument("--early_stopping_rounds", type=int, default=50)
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--batchsize", type=int, default=256)
     parser.add_argument("--buffer_size", type=int, default=2048)
@@ -644,8 +652,13 @@ def main():
     best_episode_reward = -1e999
     basic_batch_size = args.batchsize
     basic_update_times = 1
+    patience_counter = 0  # early stop
+    bestATT = 1e99
     with tqdm(range(args.training_step), ncols=100, smoothing=0.1) as bar:
         for step in bar:
+            if patience_counter > args.early_stopping_rounds:
+                # no better result within specific rounds
+                break
             _st = time.time()
             eps = lerp(1, 0.05, step / 100000)
             action = []
@@ -716,6 +729,12 @@ def main():
             action_one_hot = next_action_one_hot
 
             if step >= args.training_start and step % args.training_freq == 0:
+                currentATT = info["ATT"]
+                if currentATT < bestATT:
+                    bestATT = currentATT
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
                 k = 1
 
                 batch_size = int(k * basic_batch_size)

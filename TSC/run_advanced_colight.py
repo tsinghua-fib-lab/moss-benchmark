@@ -95,6 +95,7 @@ def main():
     parser.add_argument("--training_step", type=int, default=10000000)
     parser.add_argument("--training_start", type=int, default=1000)
     parser.add_argument("--training_freq", type=int, default=10)
+    parser.add_argument("--early_stopping_rounds", type=int, default=50)
     parser.add_argument("--target_freq", type=int, default=100)
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--batchsize", type=int, default=128)
@@ -182,8 +183,13 @@ def main():
 
     basic_batch_size = args.batchsize
     basic_update_times = 1
+    patience_counter = 0  # early stop
+    bestATT = 1e99
     with tqdm(range(args.training_step), ncols=100, smoothing=0.1) as bar:
         for step in bar:
+            if patience_counter > args.early_stopping_rounds:
+                # no better result within specific rounds
+                break
             _st = time.time()
             eps = lerp(1, 0.05, step / 100000)
             action = []
@@ -270,6 +276,12 @@ def main():
             neighbor_obs, neighbor_mask = next_neighbor_obs, next_neighbor_mask
 
             if step >= args.training_start and step % args.training_freq == 0:
+                currentATT = info["ATT"]
+                if currentATT < bestATT:
+                    bestATT = currentATT
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
                 k = 1
 
                 batch_size = int(k * basic_batch_size)
