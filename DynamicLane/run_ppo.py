@@ -686,7 +686,8 @@ def main():
                     f.write(msg)
             # if global_step >= next_save_step:
             #     torch.save(agent.state_dict(), f'{path}/ckpts/{global_step}.pt')
-            if global_step % args.training_freq == 0:
+            # if global_step % args.training_freq == 0:
+            if True:
                 currentATT = info["ATT-d"]  # type:ignore
                 if currentATT < bestATT:
                     bestATT = currentATT
