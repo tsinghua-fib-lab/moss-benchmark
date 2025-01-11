@@ -34,6 +34,8 @@ def parse_args():
     parser.add_argument("--steps", type=int, default=7200)
     parser.add_argument("--interval", type=int, default=180)
     parser.add_argument("--mlp", type=str, default="256,256")
+    parser.add_argument("--early_stopping_rounds", type=int, default=50)
+    parser.add_argument("--training_freq", type=int, default=10)
 
     parser.add_argument("--total-timesteps", type=int, default=100000000)
     parser.add_argument("--lr", type=float, default=3e-4)
@@ -449,8 +451,13 @@ def main():
     #     next_save_step = args.save_interval
     # else:
     #     next_save_step = 1e999
+    patience_counter = 0  # early stop
+    bestATT = 1e99
     with tqdm(range(args.total_timesteps), ncols=90, smoothing=0.1) as bar:
         while global_step < args.total_timesteps:
+            if patience_counter > args.early_stopping_rounds:
+                # no better result within specific rounds
+                break
             _t = time.time()
             for step in range(args.num_steps):
                 obs_1[step] = next_obs_1
@@ -679,6 +686,13 @@ def main():
                     f.write(msg)
             # if global_step >= next_save_step:
             #     torch.save(agent.state_dict(), f'{path}/ckpts/{global_step}.pt')
+            if global_step % args.training_freq == 0:
+                currentATT = info["ATT-d"]  # type:ignore
+                if currentATT < bestATT:
+                    bestATT = currentATT
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
     writer.close()
 
 

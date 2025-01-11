@@ -27,6 +27,7 @@ def parse_args():
     parser.add_argument("--suffix", type=str)
     parser.add_argument("--seed", type=int, default=43, help="seed of the experiment")
     parser.add_argument("--device", type=int, default=0)
+    parser.add_argument('--training_freq', type=int, default=10)
 
     parser.add_argument("--data", type=str, default="data/us_newyork")
     parser.add_argument("--start", type=int, default=0)
