@@ -3,14 +3,22 @@ set -x
 set -e
 
 # ATTENTION:这些是还没跑完efficient_mplight的city
-# normal traffic condition
-NORMAL_CITIES="china_shanghai france_paris us_newyork"
-# smooth traffic condition
-SMOOTH_CITIES="china_beijing_s china_shanghai_s us_newyork_s"
-# congested traffic condition
-CONGESTED_CITIES="china_beijing_c france_paris_c us_newyork_c"
 
-for city in $NORMAL_CITIES; do
+# normal traffic condition
+UNDONE_NORMAL_CITIES="china_shanghai france_paris us_newyork"
+# smooth traffic condition
+UNDONE_SMOOTH_CITIES="china_beijing_s china_shanghai_s us_newyork_s"
+# congested traffic condition
+UNDONE_CONGESTED_CITIES="china_beijing_c france_paris_c us_newyork_c"
+
+# normal traffic condition
+NORMAL_CITIES="china_beijing china_shanghai france_paris us_newyork"
+# smooth traffic condition
+SMOOTH_CITIES="china_beijing_s china_shanghai_s france_paris_s us_newyork_s"
+# congested traffic condition
+CONGESTED_CITIES="china_beijing_c china_shanghai_c france_paris_c us_newyork_c"
+
+for city in $UNDONE_NORMAL_CITIES; do
     # for algo in ft mp ppo mplight efficient_mplight advanced_colight advanced_mplight colight frap; do
     for algo in efficient_mplight; do
         # train for 4 hours
@@ -38,7 +46,7 @@ for city in $NORMAL_CITIES; do
 done
 
 # 其他拥堵条件
-for city in $SMOOTH_CITIES $CONGESTED_CITIES; do; do
+for city in $UNDONE_SMOOTH_CITIES $UNDONE_CONGESTED_CITIES; do; do
     # for algo in ft mp ppo mplight efficient_mplight advanced_colight advanced_mplight colight frap; do
     for algo in efficient_mplight; do
         # train for 4 hours
