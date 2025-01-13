@@ -2,7 +2,7 @@
 set -x
 set -e
 
-PART1_CITIES="france_paris france_paris_c us_newyork_c"
+PART1_CITIES="france_paris_c"
 
 for city in $PART1_CITIES; do
     # for algo in ft mp ppo mplight efficient_mplight advanced_colight advanced_mplight colight frap; do
