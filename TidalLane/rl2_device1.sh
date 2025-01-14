@@ -2,7 +2,7 @@
 set -x
 set -e
 
-PART0_CITIES="china_beijing china_beijing_s"
+PART0_CITIES="china_beijing china_beijing_s us_newyork_s"
 
 for city in $PART0_CITIES; do
     for algo in none random rule; do
