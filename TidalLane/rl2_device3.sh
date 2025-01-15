@@ -2,6 +2,12 @@
 set -x
 set -e
 
+echo "脚本已经开始将在7小时后继续执行。"
+
+sleep 7h
+
+echo "7小时已过脚本将继续执行。"
+
 PART0_CITIES="us_newyork france_paris_s france_paris_c"
 
 for city in $PART0_CITIES; do
