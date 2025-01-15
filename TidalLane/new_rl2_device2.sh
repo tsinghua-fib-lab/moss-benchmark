@@ -4,7 +4,7 @@ set -e
 
 echo "脚本已经开始将在7小时后继续执行。"
 
-sleep 7h
+#sleep 7h
 
 echo "7小时已过脚本将继续执行。"
 
