@@ -21,38 +21,38 @@ CONGESTED_CITIES="china_beijing_c china_shanghai_c france_paris_c us_newyork_c"
 
 for city in $NORMAL_CITIES; do
     for algo in advanced_colight; do
-        timeout 4h python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 1 || true
+        timeout 4h python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 0 || true
     done
 done
 
 # 其他拥堵条件
 for city in $UNDONE_SMOOTH_CITIES $UNDONE_CONGESTED_CITIES; do
     for algo in efficient_mplight; do
-        python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 1
+        python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 0
     done
 done
 
 for city in $SMOOTH_CITIES $CONGESTED_CITIES; do
     for algo in frap; do
-        timeout 4h python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 1 || true
+        timeout 4h python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 0 || true
     done
 done
 
 for city in $SMOOTH_CITIES $CONGESTED_CITIES; do
     for algo in colight; do
-        timeout 4h python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 1 || true
+        timeout 4h python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 0 || true
     done
 done
 
 for city in $SMOOTH_CITIES $CONGESTED_CITIES; do
     for algo in advanced_mplight; do
-        timeout 4h python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 1 || true
+        timeout 4h python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 0 || true
     done
 done
 
 for city in $SMOOTH_CITIES $CONGESTED_CITIES; do
     for algo in advanced_colight; do
-        timeout 4h python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 1 || true
+        timeout 4h python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 0 || true
     done
 done
 
