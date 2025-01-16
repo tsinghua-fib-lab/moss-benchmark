@@ -12,5 +12,5 @@ for city in $PART0_CITIES; do
     
     python3 run_baseline.py --algo rule --data data/$city --start 25200 --steps 10800 --exp $city --device 3
     
-    python3 run_ppo.py --data data/$city --start 25200 --steps 10800 --exp $city --device 3
+    # python3 run_ppo.py --data data/$city --start 25200 --steps 10800 --exp $city --device 3
 done
