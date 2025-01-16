@@ -14,3 +14,9 @@ for city in $PART0_CITIES; do
     
     # python3 run_ppo.py --data data/$city --start 25200 --steps 10800 --exp $city --device 3
 done
+
+PART1_CITIES="us_newyork_c"
+
+for city in $PART1_CITIES; do
+    python3 run_ppo.py --data data/$city --start 25200 --steps 10800 --exp $city --device 3
+done
