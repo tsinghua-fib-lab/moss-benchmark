@@ -760,7 +760,7 @@ def main():
                     d = torch.tensor(d, dtype=torch.float32, device=device)
 
                     mini_batch_size = args.mini_batch_size
-                    for i in range(int(np.ceil(args.batchsize / mini_batch_size))):
+                    for i in range(int(np.ceil(args.num_agents/mini_batch_size))):
                         s_tmp, a_tmp, r_tmp, sp_tmp, ac_tmp = (
                             np.array(
                                 s[i * mini_batch_size : (i + 1) * mini_batch_size]
