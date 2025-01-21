@@ -7,8 +7,6 @@ SMOOTH_CITIES="china_beijing_s china_shanghai_s france_paris_s us_newyork_s"
 # congested traffic condition
 CONGESTED_CITIES="china_beijing_c china_shanghai_c france_paris_c us_newyork_c"
 
-timeout 4h python3 run_efficient_mplight.py --data ./data/us_newyork_c --start 25200 --steps 10800 --exp us_newyork_c --device 1
-
 for city in $SMOOTH_CITIES $CONGESTED_CITIES; do
     for algo in advanced_mplight; do
         timeout 4h python3 run_$algo.py --data ./data/$city --start 25200 --steps 10800 --exp $city --device 1 || true
